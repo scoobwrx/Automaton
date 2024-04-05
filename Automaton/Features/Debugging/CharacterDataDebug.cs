@@ -2,6 +2,7 @@ using Automaton.Debugging;
 using ECommons.DalamudServices;
 using ECommons.GameFunctions;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
 
 namespace Automaton.Features.Debugging;

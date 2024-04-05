@@ -1,6 +1,4 @@
-using Automaton.Helpers.Faloop;
 using Dalamud.Game.Text;
-using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using ECommons.DalamudServices;
 using Lumina.Excel.GeneratedSheets;
@@ -103,50 +101,6 @@ public static class CoordinatesHelper
         {
             Svc.Log.Error($"Cannot find nearest aetheryte of {maplinkMessage.PlaceName}({maplinkMessage.X}, {maplinkMessage.Y}).");
         }
-    }
-
-    public static SeString? CreateMapLink(uint zoneId, int zonePoiId, int? instance, FaloopSession session)
-    {
-        var zone = Svc.Data.GetExcelSheet<TerritoryType>()?.GetRow(zoneId);
-        var map = zone?.Map.Value;
-        if (zone == default || map == default)
-        {
-            Svc.Log.Debug("CreateMapLink: zone == null || map == null");
-            return default;
-        }
-
-        var location = session.EmbedData.ZoneLocations.FirstOrDefault(x => x.Id == zonePoiId);
-        if (location == default)
-        {
-            Svc.Log.Debug("CreateMapLink: location == null");
-            return default;
-        }
-
-        var n = 41 / (map.SizeFactor / 100.0);
-        var loc = location.Location.Split([','], 2)
-            .Select(int.Parse)
-            .Select(x => (x / 2048.0 * n) + 1)
-            .Select(x => Math.Round(x, 1))
-            .Select(x => (float)x)
-            .ToList();
-
-        var mapLink = SeString.CreateMapLink(zone.RowId, zone.Map.Row, loc[0], loc[1]);
-
-        var instanceIcon = GetInstanceIcon(instance);
-        return instanceIcon != default ? mapLink.Append(instanceIcon) : mapLink;
-    }
-
-    public static (int, int) GetCoordinatesFromPoiID(int zonePoiId, FaloopSession session)
-    {
-        var location = session.EmbedData.ZoneLocations.FirstOrDefault(x => x.Id == zonePoiId);
-        if (location == default)
-        {
-            Svc.Log.Debug("CreateMapLink: location == null");
-            return default;
-        }
-
-        var loc = location.Location.Split([','], 2).Select(int.Parse).ToList();
-        return (loc[0], loc[1]);
     }
 
     private static TextPayload? GetInstanceIcon(int? instance)
