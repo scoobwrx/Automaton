@@ -1,8 +1,10 @@
+using Automaton.Features.Commands;
 using Automaton.FeaturesSetup;
 using Automaton.Helpers;
 using Automaton.IPC;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Fates;
+using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.Types;
 using ECommons.DalamudServices;
 using ECommons.GameFunctions;
@@ -57,6 +59,7 @@ internal class DateWithDestiny : Feature
         TheAzimSteppe = 622,
     }
 
+    private const uint YokaiWatch = 15222;
     private static readonly List<uint> YokaiMinions = [200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 390, 391, 392, 393];
     private static readonly List<uint> YokaiLegendaryMedals = [15167, 15168, 15169, 15170, 15171, 15172, 15173, 15174, 15175, 15176, 15177, 15178, 15179, 15180, 30803, 30804, 30805, 30806];
     private static readonly List<List<Z>> YokaiZones =
@@ -162,6 +165,12 @@ internal class DateWithDestiny : Feature
         {
             if (YokaiMinions.Contains(CurrentCompanion))
             {
+                // if watch isn't equipped, equip it
+                if (HaveYokaiMinionsMissing() && !HasWatchEquipped() && InventoryManager.Instance()->GetInventoryItemCount(YokaiWatch) > 0)
+                {
+                    Svc.Log.Debug("Equipping watch watch");
+                    Equip.EquipItem(15222);
+                }
                 // fate farm until 15 legendary medals
                 var medal = yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Medal;
                 if (InventoryManager.Instance()->GetInventoryItemCount(medal) >= 15)
@@ -216,9 +225,13 @@ internal class DateWithDestiny : Feature
     private IOrderedEnumerable<Dalamud.Game.ClientState.Fates.Fate> GetFates()
         => Svc.Fates.Where(f => f.GameData.Rule == 1 && f.State != FateState.Preparation && (f.Duration <= 900 || f.Progress > 0) && f.Progress <= 90 && f.TimeRemaining > 120)
         .OrderBy(f => Vector3.DistanceSquared(Svc.ClientState.LocalPlayer.Position, f.Position));
-    private unsafe GameObject GetFateMob() => Svc.Objects.OrderByDescending(x => (x as Character)?.MaxHp ?? 0).FirstOrDefault(x => x.Struct() != null && x.Struct()->FateId == FateID);
+    private unsafe GameObject GetFateMob()
+        => Svc.Objects.OrderByDescending(x => (x as Character)?.MaxHp ?? 0).ThenByDescending(x => ObjectFunctions.GetAttackableEnemyCountAroundPoint(x.Position, 5))
+        .FirstOrDefault(x => !x.IsDead && x.IsTargetable && x.IsHostile() && x.Struct() != null && x.Struct()->FateId == FateID && x.ObjectKind == ObjectKind.BattleNpc && x.SubKind == (byte)BattleNpcSubKind.Enemy);
     private unsafe uint CurrentCompanion => Svc.ClientState.LocalPlayer.Struct()->Character.CompanionObject->Character.GameObject.DataID;
     private unsafe bool CompanionUnlocked(uint id) => UIState.Instance()->IsCompanionUnlocked(id);
+    private unsafe bool HasWatchEquipped() => InventoryManager.Instance()->GetInventoryContainer(InventoryType.EquippedItems)->GetInventorySlot(10)->ItemID == YokaiWatch;
+    private unsafe bool HaveYokaiMinionsMissing() => yokai.Any(x => CompanionUnlocked(x.Minion));
 
     private void SyncFate(ushort value)
     {
