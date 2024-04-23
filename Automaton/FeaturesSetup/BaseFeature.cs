@@ -9,6 +9,7 @@ using Dalamud.Plugin;
 using ECommons;
 using ECommons.Automation;
 using ECommons.DalamudServices;
+using ECommons.Reflection;
 using ECommons.Throttlers;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
@@ -18,6 +19,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using ImGuiNET;
 using Newtonsoft.Json;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -63,9 +65,13 @@ public abstract class BaseFeature
 
     public virtual bool Ready { get; protected set; }
 
+    public virtual bool Outdated { get; protected set; }
+
     public virtual FeatureType FeatureType { get; }
 
     public virtual bool isDebug { get; }
+
+    public virtual List<string> RequiredPlugins { get; }
 
     public void InterfaceSetup(Automaton plugin, DalamudPluginInterface pluginInterface, Configuration config, FeatureProvider fp)
     {
@@ -510,4 +516,53 @@ public abstract class BaseFeature
                             Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BoundByDuty56] ||
                             Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BoundByDuty95] ||
                             Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BoundToDuty97];
+
+    //public static bool HasRepo(string repository)
+    //{
+    //    var conf = DalamudReflector.GetService("Dalamud.Configuration.Internal.DalamudConfiguration");
+    //    var repolist = (IEnumerable)conf.GetFoP("ThirdRepoList");
+    //    if (repolist != null)
+    //        foreach (var r in repolist)
+    //            if ((string)r.GetFoP("Url") == repository)
+    //                return true;
+    //    return false;
+    //}
+
+    //public void AddRepo(string repository, bool enabled)
+    //{
+    //    var conf = DalamudReflector.GetService("Dalamud.Configuration.Internal.DalamudConfiguration");
+    //    var repolist = (IEnumerable)conf.GetFoP("ThirdRepoList");
+    //    if (repolist != null)
+    //        foreach (var r in repolist)
+    //            if ((string)r.GetFoP("Url") == repository)
+    //                return;
+    //    var instance = Activator.CreateInstance(Svc.PluginInterface.GetType().Assembly.GetType("Dalamud.Configuration.ThirdPartyRepoSettings"));
+    //    instance.SetFoP("Url", repository);
+    //    instance.SetFoP("IsEnabled", enabled);
+    //    conf.GetFoP<IList>("ThirdRepoList").Add(instance);
+    //    if (repolist != null)
+    //    {
+    //        foreach (var repo in repolist)
+    //        {
+    //            var name = (string)repo.GetFoP("Name");
+    //            var url = (string)repo.GetFoP("Url");
+    //            var isEnabled = (bool)repo.GetFoP("IsEnabled");
+    //            repolist.Add(new ThirdPartyRepoSettings(url, isEnabled, name));
+    //        }
+    //    }
+    //    if (repolist.Any(r => r.URL == repository))
+    //    {
+    //        repolist.RemoveAll(r => r.URL == repository);
+    //        Svc.Log.Info($"Removed repo {repository} from your dalamud settings.");
+    //    }
+    //    else
+    //    {
+    //        repolist.Add(new ThirdPartyRepoSettings(repository, false, string.Empty));
+    //        Svc.Log.Info($"Added repo {repository} to your dalamud settings.");
+
+
+    //    }
+    //    //foreach (var repo in _repos)
+    //    //    Svc.Log.Info($"{repo.Name}; {repo.Enabled}: {repo.URL}");
+    //}
 }

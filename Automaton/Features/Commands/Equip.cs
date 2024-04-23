@@ -43,7 +43,7 @@ public unsafe class Equip : CommandFeature
 
     private static uint GetItemIDFromString(string arg) => Svc.Data.GetExcelSheet<Item>(Svc.ClientState.ClientLanguage).FirstOrDefault(x => x.Name == arg).RowId;
 
-    private static void EquipItem(uint itemId)
+    public static void EquipItem(uint itemId)
     {
         var pos = FindItemInInventory(itemId, [
             InventoryType.Inventory1, InventoryType.Inventory2,

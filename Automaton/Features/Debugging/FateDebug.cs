@@ -1,4 +1,5 @@
 using Automaton.Debugging;
+using Automaton.IPC;
 using ECommons.DalamudServices;
 using FFXIVClientStructs.FFXIV.Client.Game.Fate;
 using ImGuiNET;
@@ -37,7 +38,7 @@ internal unsafe class FateDebug : DebugHelper
             var cmd = $"/vnavmesh moveto {loc.X} {loc.Y} {loc.Z}";
             Svc.Log.Info($"executing command {cmd}");
             if (ImGui.Button("path"))
-                ECommons.Automation.Chat.Instance.SendMessage($"{cmd}");
+                NavmeshIPC.PathfindAndMoveTo(loc, Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.InFlight]);
         }
     }
 }

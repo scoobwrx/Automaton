@@ -2,8 +2,8 @@ using Automaton.Debugging;
 using ECommons.DalamudServices;
 using ECommons.GameFunctions;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
-using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
+using Lumina.Excel.GeneratedSheets;
 
 namespace Automaton.Features.Debugging;
 
@@ -28,12 +28,9 @@ public unsafe class CharacterDataDebug : DebugHelper
             ImGui.TextUnformatted($"flag 1: {PlayerState.Instance()->PlayerStateFlags1}");
             ImGui.TextUnformatted($"flag 2: {PlayerState.Instance()->PlayerStateFlags2}");
             ImGui.TextUnformatted($"flag 3: {PlayerState.Instance()->PlayerStateFlags3}");
+            var companion = Svc.ClientState.LocalPlayer.Struct()->Character.CompanionObject->Character.GameObject.DataID;
+            ImGui.TextUnformatted($"Companion: [{companion}] {Svc.Data.GetExcelSheet<Companion>().GetRow(companion).Singular}");
         }
-
-        if (ImGui.Button("test"))
-            PlayerState.Instance()->FreeAetheryteId = 183;
-        if (ImGui.Button("test2"))
-            PlayerState.Instance()->FreeAetheryteId = 0;
 
         if (Svc.ClientState.LocalPlayer.StatusList is not null)
         {

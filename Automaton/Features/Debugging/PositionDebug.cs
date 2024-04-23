@@ -112,13 +112,16 @@ public unsafe class PositionDebug : DebugHelper
 
         ImGui.Separator();
 
-        var territoryID = Svc.ClientState.TerritoryType;
-        var map = Svc.Data.GetExcelSheet<TerritoryType>()!.GetRow(territoryID);
-        ImGui.Text($"Territory ID: {territoryID}");
-        ImGui.Text($"Territory Name: {map!.PlaceName.Value?.Name}");
-
         if (Svc.ClientState.LocalPlayer != null)
+        {
+            var territoryID = Svc.ClientState.TerritoryType;
+            var map = Svc.Data.GetExcelSheet<TerritoryType>()!.GetRow(territoryID);
+            ImGui.Text($"Territory ID: {territoryID}");
+            ImGui.Text($"Territory Name: {map!.PlaceName.Value?.Name}");
+
+
             ImGui.Text($"Nearest Aetheryte: {CoordinatesHelper.GetNearestAetheryte(Svc.ClientState.LocalPlayer.Position, map)}");
+        }
     }
 
     private void NoClipMode(IFramework framework)

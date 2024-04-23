@@ -76,6 +76,39 @@ public static class CoordinatesHelper
         return GetNearestAetheryte(fauxMapLinkMessage);
     }
 
+    public static uint GetNearestAetheryte(int zoneID, Vector3 pos)
+    {
+        var aetheryte = 0u;
+        double distance = 0;
+        foreach (var data in Aetherytes)
+        {
+            if (!data.IsAetheryte) continue;
+            if (data.Territory.Value == null) continue;
+            if (data.PlaceName.Value == null) continue;
+            if (data.Territory.Value.RowId == zoneID)
+            {
+                var mapMarker = AetherytesMap.FirstOrDefault(m => m.DataType == 3 && m.DataKey == data.RowId);
+                if (mapMarker == null)
+                {
+                    Svc.Log.Error($"Cannot find aetherytes position for {zoneID}#{data.PlaceName.Value.Name}");
+                    continue;
+                }
+                var AethersX = ConvertMapMarkerToMapCoordinate(mapMarker.X, 100);
+                var AethersY = ConvertMapMarkerToMapCoordinate(mapMarker.Y, 100);
+                var temp_distance = Math.Pow(AethersX - pos.X, 2) + Math.Pow(AethersY - pos.Z, 2);
+                if (aetheryte == default || temp_distance < distance)
+                {
+                    distance = temp_distance;
+                    aetheryte = data.RowId;
+                }
+            }
+        }
+
+        return aetheryte;
+    }
+
+    public static uint GetZoneMainAetheryte(uint zoneID) => Aetherytes.FirstOrDefault(a => a.Territory.Value != null && a.Territory.Value.RowId == zoneID).RowId;
+
     private static float ConvertMapMarkerToMapCoordinate(int pos, float scale)
     {
         var num = scale / 100f;

@@ -6,6 +6,7 @@
 //using System.Reflection;
 //using System.Text.RegularExpressions;
 //using Automaton.Features;
+//using Automaton.FeaturesSetup;
 //using Dalamud.Interface.Internal;
 //using Dalamud.Interface.Utility.Raii;
 //using Dalamud.Interface.Windowing;
@@ -318,7 +319,7 @@
 //        feature.DrawConfig();
 //    }
 
-//    private static (string, HaselColor) GetfeatureStatus(Feature feature)
+//    private static (string, HaselColor) GetfeatureStatus(BaseFeature feature)
 //    {
 //        var status = t("Haselfeatures.Config.featureStatus.Unknown");
 //        var color = Colors.Grey3;
