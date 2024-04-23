@@ -16,6 +16,7 @@ public unsafe class ClickToMove : Feature
     public override FeatureType FeatureType => FeatureType.Other;
 
     private readonly OverrideMovement movement = new();
+    private NavmeshIPC navmesh;
 
     public Configs Config { get; private set; }
     public override bool UseAutoConfig => true;
@@ -30,6 +31,7 @@ public unsafe class ClickToMove : Feature
         base.Enable();
         Config = LoadConfig<Configs>() ?? new Configs();
         Svc.Framework.Update += MoveTo;
+        navmesh = new();
     }
 
     public override void Disable()
@@ -65,12 +67,12 @@ public unsafe class ClickToMove : Feature
                     Svc.GameGui.ScreenToWorld(mousePos, out var pos, 100000f);
                     if (Config.Pathfind)
                     {
-                        if (!NavmeshIPC.PathIsRunning())
-                            NavmeshIPC.PathfindAndMoveTo(pos, false);
+                        if (!navmesh.IsRunning())
+                            navmesh.PathfindAndMoveTo(pos, false);
                         else
                         {
-                            NavmeshIPC.PathStop();
-                            NavmeshIPC.PathfindAndMoveTo(pos, false);
+                            navmesh.Stop();
+                            navmesh.PathfindAndMoveTo(pos, false);
                         }
                         return;
                     }

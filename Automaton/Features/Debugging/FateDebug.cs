@@ -37,8 +37,6 @@ internal unsafe class FateDebug : DebugHelper
             var loc = fm->GetFateById(fate)->Location;
             var cmd = $"/vnavmesh moveto {loc.X} {loc.Y} {loc.Z}";
             Svc.Log.Info($"executing command {cmd}");
-            if (ImGui.Button("path"))
-                NavmeshIPC.PathfindAndMoveTo(loc, Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.InFlight]);
         }
     }
 }

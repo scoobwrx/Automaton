@@ -62,7 +62,6 @@ public class Automaton : IDalamudPlugin
 
         PandorasBoxIPC.Init();
         QoLBarIPC.Init();
-        NavmeshIPC.Init();
 
         Svc.PluginInterface.UiBuilder.Draw += Ws.Draw;
         Svc.PluginInterface.UiBuilder.OpenConfigUi += DrawConfigUI;

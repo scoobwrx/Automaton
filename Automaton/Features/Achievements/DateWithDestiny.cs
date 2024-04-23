@@ -13,6 +13,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.Fate;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
@@ -22,11 +23,13 @@ namespace Automaton.Features.Achievements;
 internal class DateWithDestiny : Feature
 {
     public override string Name => "Date with Destiny";
-    public override string Description => "It's a FATE bot. Requires vnavmesh and whatever you want for combat. Also has a Yo-Kai mode.";
+    public override string Description => "It's a FATE bot. Requires vnavmesh and whatever you want for combat. Yo-Kai mode can be activated by having a yokai minion summoned.";
     public override FeatureType FeatureType => FeatureType.Achievements;
 
     private bool active = false;
     private Throttle action = new();
+    private NavmeshIPC navmesh;
+    private Random random;
 
     private enum Z
     {
@@ -118,6 +121,8 @@ internal class DateWithDestiny : Feature
     public override void Enable()
     {
         base.Enable();
+        navmesh = new();
+        random = new();
         Svc.Framework.Update += OnUpdate;
     }
 
@@ -130,12 +135,12 @@ internal class DateWithDestiny : Feature
     private unsafe void OnUpdate(IFramework framework)
     {
         if (!active || Svc.Fates.Count == 0 || Svc.Condition[ConditionFlag.Unknown57]) return;
-        if (NavmeshIPC.PathIsRunning())
+        if (navmesh.IsRunning())
         {
             if (Vector3.DistanceSquared(FateManager.Instance()->GetFateById(nextFateID)->Location, Svc.ClientState.LocalPlayer.Position) > 3)
                 return;
             else
-                NavmeshIPC.PathStop();
+                navmesh.Stop();
         }
 
         if (Svc.Condition[ConditionFlag.InCombat] && !Svc.Condition[ConditionFlag.Mounted]) return;
@@ -153,8 +158,13 @@ internal class DateWithDestiny : Feature
                 {
                     Svc.Log.Debug("Targeting fate mob");
                     Svc.Targets.Target = target;
-                    Svc.Log.Debug("Finding path to fate");
-                    NavmeshIPC.PathfindAndMoveTo(target.Position, false);
+                    if (!navmesh.IsRunning() || !navmesh.PathfindInProgress())
+                    {
+                        Svc.Log.Debug("Finding path to fate");
+                        // maybe get the closest point that's 3y from the hitbox instead
+                        navmesh.PathfindAndMoveTo(target.Position, false);
+                        return;
+                    }
                 }
             }
         }
@@ -209,11 +219,11 @@ internal class DateWithDestiny : Feature
             }
 
             var nextFate = GetFates().FirstOrDefault();
-            if (nextFate is not null && Svc.Condition[ConditionFlag.InFlight] && !NavmeshIPC.PathfindInProgress())
+            if (nextFate is not null && Svc.Condition[ConditionFlag.InFlight] && !navmesh.PathfindInProgress())
             {
                 Svc.Log.Debug("Finding path to fate");
                 nextFateID = nextFate.FateId;
-                NavmeshIPC.PathfindAndMoveTo(nextFate.Position, true);
+                navmesh.PathfindAndMoveTo(GetRandomPointInFate(nextFateID), true);
             }
         }
     }
@@ -222,16 +232,26 @@ internal class DateWithDestiny : Feature
     private void ExecuteMount() => ExecuteActionSafe(ActionType.GeneralAction, 24); // flying mount roulette
     private void ExecuteDismount() => ExecuteActionSafe(ActionType.GeneralAction, 23);
     private void ExecuteJump() => ExecuteActionSafe(ActionType.GeneralAction, 2);
+
     private IOrderedEnumerable<Dalamud.Game.ClientState.Fates.Fate> GetFates()
         => Svc.Fates.Where(f => f.GameData.Rule == 1 && f.State != FateState.Preparation && (f.Duration <= 900 || f.Progress > 0) && f.Progress <= 90 && f.TimeRemaining > 120)
         .OrderBy(f => Vector3.DistanceSquared(Svc.ClientState.LocalPlayer.Position, f.Position));
     private unsafe GameObject GetFateMob()
         => Svc.Objects.OrderByDescending(x => (x as Character)?.MaxHp ?? 0).ThenByDescending(x => ObjectFunctions.GetAttackableEnemyCountAroundPoint(x.Position, 5))
         .FirstOrDefault(x => !x.IsDead && x.IsTargetable && x.IsHostile() && x.Struct() != null && x.Struct()->FateId == FateID && x.ObjectKind == ObjectKind.BattleNpc && x.SubKind == (byte)BattleNpcSubKind.Enemy);
+
     private unsafe uint CurrentCompanion => Svc.ClientState.LocalPlayer.Struct()->Character.CompanionObject->Character.GameObject.DataID;
     private unsafe bool CompanionUnlocked(uint id) => UIState.Instance()->IsCompanionUnlocked(id);
     private unsafe bool HasWatchEquipped() => InventoryManager.Instance()->GetInventoryContainer(InventoryType.EquippedItems)->GetInventorySlot(10)->ItemID == YokaiWatch;
     private unsafe bool HaveYokaiMinionsMissing() => yokai.Any(x => CompanionUnlocked(x.Minion));
+
+    private unsafe Vector3 GetRandomPointInFate(ushort fateID)
+    {
+        var fate = FateManager.Instance()->GetFateById(fateID);
+        var angle = random.NextDouble() * 2 * Math.PI;
+        var randomPoint = new Vector3((float)(fate->Radius / 2 * Math.Cos(angle)), fate->Location.Y, (float)(fate->Radius / 2 * Math.Sin(angle)));
+        return navmesh.NearestPoint(randomPoint, 5, 5);
+    }
 
     private void SyncFate(ushort value)
     {
