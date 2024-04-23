@@ -5,7 +5,6 @@ using ECommons;
 using ECommons.DalamudServices;
 using ImGuiNET;
 using System.Numerics;
-using System.Windows.Forms;
 
 namespace Automaton.Features.Other;
 
@@ -47,7 +46,7 @@ public unsafe class ClickToMove : Feature
     {
         if (Vector3.DistanceSquared(Svc.ClientState.LocalPlayer.Position, destination) < 0.0025) movement.Enabled = false;
 
-        if (GenericHelpers.IsKeyPressed(Keys.LButton) && Misc.IsClickingInGameWorld())
+        if (GenericHelpers.IsKeyPressed(ECommons.Interop.LimitedKeys.LeftMouseButton) && Misc.IsClickingInGameWorld())
         {
             if (!isPressed)
             {

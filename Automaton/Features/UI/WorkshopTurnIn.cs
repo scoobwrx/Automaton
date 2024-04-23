@@ -396,7 +396,7 @@ public unsafe class WorkshopTurnin : Feature
             else
             {
                 //pi.Framework.Gui.Chat.Print(Environment.TickCount + " Now loading not visible");
-                if (WindowsKeypress.SendKeypress(Keys.Escape))
+                if (WindowsKeypress.SendKeypress(ECommons.Interop.LimitedKeys.Escape))
                 {
                     return true;
                 }

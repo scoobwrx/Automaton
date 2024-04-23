@@ -27,6 +27,8 @@ internal class DateWithDestiny : Feature
     public override FeatureType FeatureType => FeatureType.Achievements;
 
     private bool active = false;
+    private string step;
+    private static Vector3 TargetPos;
     private Throttle action = new();
     private NavmeshIPC navmesh;
     private Random random;
@@ -105,14 +107,17 @@ internal class DateWithDestiny : Feature
     protected override DrawConfigDelegate DrawConfigTree => (ref bool hasChanged) =>
     {
         if (ImGui.Button("Start/Stop"))
+        {
             active ^= true;
-
-        ImGui.TextUnformatted($"Active: {active}");
+            step = string.Empty;
+            navmesh.Stop();
+        }
+        ImGui.TextUnformatted($"Status: {(active ? "on" : "off")}. Step: {step}");
         ImGui.TextUnformatted($"Filtered FATEs:");
         var fates = GetFates();
         if (fates != null)
             foreach (var fate in fates)
-                ImGui.TextUnformatted($"{fate.Name} @ {fate.Position} {Vector3.DistanceSquared(fate.Position, Svc.ClientState.LocalPlayer.Position)} {fate.Progress}%% {fate.TimeRemaining}");
+                ImGui.TextUnformatted($"{fate.Name} @ {fate.Position} {Vector3.DistanceSquared(fate.Position, Svc.ClientState.LocalPlayer.Position)} {fate.Progress}% {fate.TimeRemaining}");
         ImGui.TextUnformatted($"Unfiltered FATEs:");
         foreach (var fate in Svc.Fates)
             ImGui.TextUnformatted($"{fate.Name} @ {fate.Position} {fate.Progress} {fate.TimeRemaining}/{fate.Duration}");
@@ -137,8 +142,11 @@ internal class DateWithDestiny : Feature
         if (!active || Svc.Fates.Count == 0 || Svc.Condition[ConditionFlag.Unknown57]) return;
         if (navmesh.IsRunning())
         {
-            if (Vector3.DistanceSquared(FateManager.Instance()->GetFateById(nextFateID)->Location, Svc.ClientState.LocalPlayer.Position) > 3)
+            if (DistanceToTarget() > 5)
+            {
+                step = "Naving to FATE";
                 return;
+            }
             else
                 navmesh.Stop();
         }
@@ -151,18 +159,21 @@ internal class DateWithDestiny : Feature
             fateMaxLevel = cf->MaxLevel;
             if (Svc.Condition[ConditionFlag.Mounted])
                 ExecuteDismount();
-            if (!Svc.Condition[ConditionFlag.InCombat])
+            if (!Svc.Condition[ConditionFlag.InCombat] && Svc.Targets.Target == null)
             {
                 var target = GetFateMob();
                 if (target != null)
                 {
-                    Svc.Log.Debug("Targeting fate mob");
-                    Svc.Targets.Target = target;
-                    if (!navmesh.IsRunning() || !navmesh.PathfindInProgress())
+                    if (Svc.Targets.Target == null)
                     {
-                        Svc.Log.Debug("Finding path to fate");
-                        // maybe get the closest point that's 3y from the hitbox instead
-                        navmesh.PathfindAndMoveTo(target.Position, false);
+                        step = "Targeting new FATE mob";
+                        Svc.Targets.Target = target;
+                    }
+                    if (!navmesh.PathfindInProgress())
+                    {
+                        step = "Moving to new mob";
+                        TargetPos = target.Position;
+                        navmesh.PathfindAndMoveTo(TargetPos, false);
                         return;
                     }
                 }
@@ -179,6 +190,7 @@ internal class DateWithDestiny : Feature
                 if (HaveYokaiMinionsMissing() && !HasWatchEquipped() && InventoryManager.Instance()->GetInventoryItemCount(YokaiWatch) > 0)
                 {
                     Svc.Log.Debug("Equipping watch watch");
+                    step = "Equipping Yo-Kai watch";
                     Equip.EquipItem(15222);
                 }
                 // fate farm until 15 legendary medals
@@ -187,6 +199,7 @@ internal class DateWithDestiny : Feature
                 {
                     // check for other companions, summon them, repeat
                     Svc.Log.Debug("Have 15 of the relevant Legendary Medal. Swapping minions");
+                    step = "Swapping minions";
                     var minion = yokai.FirstOrDefault(x => CompanionUnlocked(x.Minion) && InventoryManager.Instance()->GetInventoryItemCount(x.Medal) < 15).Minion;
                     if (minion != default)
                     {
@@ -200,20 +213,21 @@ internal class DateWithDestiny : Feature
                 if (!zones.Contains((Z)Svc.ClientState.TerritoryType))
                 {
                     Svc.Log.Debug("Have Yokai minion equipped but not in appropiate zone. Teleporting");
+                    step = "Swapping zones";
                     Telepo.Instance()->Teleport(CoordinatesHelper.GetZoneMainAetheryte((uint)zones.First()), 0);
                     return;
                 }
             }
             if (!Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.Casting])
             {
-                Svc.Log.Debug("Mounting");
+                step = "Mounting";
                 ExecuteMount();
                 return;
             }
 
             if (Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight])
             {
-                Svc.Log.Debug("Jumping");
+                step = "Jumping";
                 ExecuteJump();
                 return;
             }
@@ -222,8 +236,10 @@ internal class DateWithDestiny : Feature
             if (nextFate is not null && Svc.Condition[ConditionFlag.InFlight] && !navmesh.PathfindInProgress())
             {
                 Svc.Log.Debug("Finding path to fate");
+                step = "Finding path to fate";
                 nextFateID = nextFate.FateId;
-                navmesh.PathfindAndMoveTo(GetRandomPointInFate(nextFateID), true);
+                TargetPos = nextFate.Position;
+                navmesh.PathfindAndMoveTo(TargetPos, true);
             }
         }
     }
@@ -237,14 +253,22 @@ internal class DateWithDestiny : Feature
         => Svc.Fates.Where(f => f.GameData.Rule == 1 && f.State != FateState.Preparation && (f.Duration <= 900 || f.Progress > 0) && f.Progress <= 90 && f.TimeRemaining > 120)
         .OrderBy(f => Vector3.DistanceSquared(Svc.ClientState.LocalPlayer.Position, f.Position));
     private unsafe GameObject GetFateMob()
-        => Svc.Objects.OrderByDescending(x => (x as Character)?.MaxHp ?? 0).ThenByDescending(x => ObjectFunctions.GetAttackableEnemyCountAroundPoint(x.Position, 5))
-        .FirstOrDefault(x => !x.IsDead && x.IsTargetable && x.IsHostile() && x.Struct() != null && x.Struct()->FateId == FateID && x.ObjectKind == ObjectKind.BattleNpc && x.SubKind == (byte)BattleNpcSubKind.Enemy);
+        => Svc.Objects.OrderByDescending(x => Vector3.DistanceSquared(x.Position, Svc.ClientState.LocalPlayer.Position))
+        .ThenByDescending(x => (x as Character)?.MaxHp ?? 0)
+        .ThenByDescending(x => ObjectFunctions.GetAttackableEnemyCountAroundPoint(x.Position, 5))
+        .Where(x => x.Struct() != null && x.Struct()->FateId == FateID)
+        .Where(x => !x.IsDead && x.IsTargetable && x.IsHostile() && x.ObjectKind == ObjectKind.BattleNpc && x.SubKind == (byte)BattleNpcSubKind.Enemy)
+        .Where(x => Math.Sqrt(Math.Pow(x.Position.X - CurrentFate->Location.X, 2) + Math.Pow(x.Position.Z - CurrentFate->Location.Z, 2)) < CurrentFate->Radius)
+        .FirstOrDefault();
 
     private unsafe uint CurrentCompanion => Svc.ClientState.LocalPlayer.Struct()->Character.CompanionObject->Character.GameObject.DataID;
     private unsafe bool CompanionUnlocked(uint id) => UIState.Instance()->IsCompanionUnlocked(id);
     private unsafe bool HasWatchEquipped() => InventoryManager.Instance()->GetInventoryContainer(InventoryType.EquippedItems)->GetInventorySlot(10)->ItemID == YokaiWatch;
     private unsafe bool HaveYokaiMinionsMissing() => yokai.Any(x => CompanionUnlocked(x.Minion));
 
+    private unsafe FateContext* CurrentFate => FateManager.Instance()->GetFateById(nextFateID);
+    private unsafe float DistanceToFate() => Vector3.DistanceSquared(CurrentFate->Location, Svc.ClientState.LocalPlayer.Position);
+    private unsafe float DistanceToTarget() => Vector3.DistanceSquared(TargetPos, Svc.ClientState.LocalPlayer.Position);
     private unsafe Vector3 GetRandomPointInFate(ushort fateID)
     {
         var fate = FateManager.Instance()->GetFateById(fateID);

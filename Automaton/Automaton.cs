@@ -6,7 +6,7 @@ using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using ECommons;
-using ECommons.Automation;
+using ECommons.Automation.LegacyTaskManager;
 using ECommons.DalamudServices;
 using ImGuiNET;
 using System.Collections.Generic;

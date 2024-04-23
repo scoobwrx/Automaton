@@ -4,7 +4,6 @@ using Automaton.Helpers;
 using ECommons;
 using ECommons.DalamudServices;
 using System.Collections.Generic;
-using System.Windows.Forms;
 
 namespace Automaton.Features.Experiments;
 
@@ -39,7 +38,7 @@ public unsafe class ClickToTP : CommandFeature
     private void ModifyPOS(IFramework framework)
     {
         if (!active) return;
-        if (GenericHelpers.IsKeyPressed(Keys.LButton) && Misc.IsClickingInGameWorld())
+        if (GenericHelpers.IsKeyPressed(ECommons.Interop.LimitedKeys.LeftMouseButton) && Misc.IsClickingInGameWorld())
         {
             if (!isPressed)
             {
