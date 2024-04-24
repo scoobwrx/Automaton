@@ -114,13 +114,16 @@ internal class DateWithDestiny : Feature
             step = string.Empty;
             navmesh.Stop();
         }
-        ImGui.SameLine();
 #if DEBUG
-        if (ImGui.Button("Swap Yokai Zones"))
+        if (Config.showDebugFeatures)
         {
-            var zone = yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Zones;
-            var z = zone[zone.IndexOf(((Z)Svc.ClientState.TerritoryType) + 2) % zone.Count];
-            unsafe { Telepo.Instance()->Teleport(CoordinatesHelper.GetZoneMainAetheryte((uint)z), 0); }
+            ImGui.SameLine();
+            if (ImGui.Button("Swap Yokai Zones"))
+            {
+                var zone = yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Zones;
+                var z = zone[zone.IndexOf(((Z)Svc.ClientState.TerritoryType) + 2) % zone.Count];
+                unsafe { Telepo.Instance()->Teleport(CoordinatesHelper.GetZoneMainAetheryte((uint)z), 0); }
+            }
         }
 #endif
         ImGui.TextUnformatted($"Status: {(active ? "on" : "off")}. Step: {step}");
@@ -141,10 +144,13 @@ internal class DateWithDestiny : Feature
                 else
                     navmesh.PathfindAndMoveTo(fate.Position, Svc.Condition[ConditionFlag.InFlight]);
             }
-            ImGui.SameLine();
 #if DEBUG
-            if (ImGui.Button($"T###{fate.FateId}"))
-                PositionDebug.SetPos(fate.Position);
+            if (Config.showDebugFeatures)
+            {
+                ImGui.SameLine();
+                if (ImGui.Button($"T###{fate.FateId}"))
+                    PositionDebug.SetPos(fate.Position);
+            }
 #endif
             ImGui.SameLine();
             if (ImGui.Button($"F###{fate.FateId}"))
