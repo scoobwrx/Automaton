@@ -175,7 +175,7 @@ internal class DateWithDestiny : Feature
     private unsafe void OnUpdate(IFramework framework)
     {
         if (!active || Svc.Fates.Count == 0 || Svc.Condition[ConditionFlag.Unknown57]) return;
-        if (navmesh.IsRunning());
+        if (navmesh.IsRunning())
         {
             if (DistanceToTarget() > 5)
             {
@@ -230,12 +230,12 @@ internal class DateWithDestiny : Feature
                 }
                 // fate farm until 15 legendary medals
                 var medal = yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Medal;
-                if (InventoryManager.Instance()->GetInventoryItemCount(medal) >= 15)
+                if (InventoryManager.Instance()->GetInventoryItemCount(medal) >= 10)
                 {
                     // check for other companions, summon them, repeat
                     Svc.Log.Debug("Have 15 of the relevant Legendary Medal. Swapping minions");
                     step = "Swapping minions";
-                    var minion = yokai.FirstOrDefault(x => CompanionUnlocked(x.Minion) && InventoryManager.Instance()->GetInventoryItemCount(x.Medal) < 15).Minion;
+                    var minion = yokai.FirstOrDefault(x => CompanionUnlocked(x.Minion) && InventoryManager.Instance()->GetInventoryItemCount(x.Medal) < 10).Minion;
                     if (minion != default)
                     {
                         ECommons.Automation.Chat.Instance.SendMessage($"/minion {Svc.Data.GetExcelSheet<Companion>().GetRow(minion).Singular}");
