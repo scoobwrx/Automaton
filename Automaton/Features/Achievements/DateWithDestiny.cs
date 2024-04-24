@@ -1,4 +1,5 @@
 using Automaton.Features.Commands;
+using Automaton.Features.Debugging;
 using Automaton.FeaturesSetup;
 using Automaton.Helpers;
 using Automaton.IPC;
@@ -11,6 +12,7 @@ using ECommons.GameFunctions;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Fate;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
 using System;
@@ -69,23 +71,23 @@ internal class DateWithDestiny : Feature
     private static readonly List<uint> YokaiLegendaryMedals = [15167, 15168, 15169, 15170, 15171, 15172, 15173, 15174, 15175, 15176, 15177, 15178, 15179, 15180, 30803, 30804, 30805, 30806];
     private static readonly List<List<Z>> YokaiZones =
         [
-            [Z.CentralShroud, Z.LowerLaNoscea, Z.CentralThanalan],
-            [Z.OuterLaNoscea, Z.WesternLaNoscea, Z.EasternLaNoscea],
-            [Z.SouthShroud, Z.UpperLaNoscea, Z.WesternThanalan],
-            [Z.NorthShroud, Z.OuterLaNoscea, Z.MiddleLaNoscea],
-            [Z.WesternThanalan, Z.CentralShroud, Z.LowerLaNoscea],
-            [Z.CentralThanalan, Z.EastShroud, Z.WesternLaNoscea],
-            [Z.EasternThanalan, Z.SouthShroud, Z.UpperLaNoscea],
-            [Z.SouthernThanalan, Z.NorthShroud, Z.UpperLaNoscea],
-            [Z.MiddleLaNoscea, Z.WesternThanalan, Z.CentralShroud],
-            [Z.LowerLaNoscea, Z.CentralThanalan, Z.EastShroud],
-            [Z.WesternLaNoscea, Z.EasternThanalan, Z.SouthShroud],
-            [Z.UpperLaNoscea, Z.SouthernThanalan, Z.NorthShroud],
-            [Z.SouthShroud, Z.MiddleLaNoscea, Z.WesternThanalan],
-            [Z.CoerthasWesternHighlands, Z.TheDravanianForelands, Z.TheDravanianHinterlands, Z.TheChurningMists, Z.TheSeaofClouds, Z.AzysLla],
-            [Z.CoerthasWesternHighlands, Z.TheDravanianForelands, Z.TheDravanianHinterlands, Z.TheChurningMists, Z.TheSeaofClouds, Z.AzysLla],
-            [Z.TheFringes, Z.TheRubySea, Z.Yanxia, Z.ThePeaks, Z.TheLochs, Z.TheAzimSteppe],
-            [Z.TheFringes, Z.TheRubySea, Z.Yanxia, Z.ThePeaks, Z.TheLochs, Z.TheAzimSteppe],
+            [Z.CentralShroud, Z.LowerLaNoscea, Z.CentralThanalan], // Jibanyan
+            [Z.EastShroud, Z.WesternLaNoscea, Z.EasternThanalan], // Komasan
+            [Z.SouthShroud, Z.UpperLaNoscea, Z.SouthernThanalan], // Whisper
+            [Z.NorthShroud, Z.OuterLaNoscea, Z.MiddleLaNoscea], // Blizzaria
+            [Z.WesternThanalan, Z.CentralShroud, Z.LowerLaNoscea], // Kyubi
+            [Z.CentralThanalan, Z.EastShroud, Z.WesternLaNoscea], // Komajiro
+            [Z.EasternThanalan, Z.SouthShroud, Z.UpperLaNoscea], // Manjimutt
+            [Z.SouthernThanalan, Z.NorthShroud, Z.OuterLaNoscea], // Noko
+            [Z.MiddleLaNoscea, Z.WesternThanalan, Z.CentralShroud], // Venoct
+            [Z.LowerLaNoscea, Z.CentralThanalan, Z.EastShroud], // Shogunyan
+            [Z.WesternLaNoscea, Z.EasternThanalan, Z.SouthShroud], // Hovernyan
+            [Z.UpperLaNoscea, Z.SouthernThanalan, Z.NorthShroud], // Robonyan
+            [Z.OuterLaNoscea, Z.MiddleLaNoscea, Z.WesternThanalan], // USApyon
+            [Z.CoerthasWesternHighlands, Z.TheDravanianForelands, Z.TheDravanianHinterlands, Z.TheChurningMists, Z.TheSeaofClouds, Z.AzysLla], // Lord Enma
+            [Z.CoerthasWesternHighlands, Z.TheDravanianForelands, Z.TheDravanianHinterlands, Z.TheChurningMists, Z.TheSeaofClouds, Z.AzysLla], // Lord Ananta
+            [Z.TheFringes, Z.TheRubySea, Z.Yanxia, Z.ThePeaks, Z.TheLochs, Z.TheAzimSteppe], // Zazel
+            [Z.TheFringes, Z.TheRubySea, Z.Yanxia, Z.ThePeaks, Z.TheLochs, Z.TheAzimSteppe], // Damona
         ];
     private readonly IEnumerable<(uint Minion, uint Medal, List<Z> Zones)> yokai = YokaiMinions.Zip(YokaiLegendaryMedals, (x, y) => (Minion: x, Medal: y)).Zip(YokaiZones, (xy, z) => (xy.Minion, xy.Medal, z));
 
@@ -112,6 +114,15 @@ internal class DateWithDestiny : Feature
             step = string.Empty;
             navmesh.Stop();
         }
+        ImGui.SameLine();
+#if DEBUG
+        if (ImGui.Button("Swap Yokai Zones"))
+        {
+            var zone = yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Zones;
+            var z = zone[zone.IndexOf(((Z)Svc.ClientState.TerritoryType) + 2) % zone.Count];
+            unsafe { Telepo.Instance()->Teleport(CoordinatesHelper.GetZoneMainAetheryte((uint)z), 0); }
+        }
+#endif
         ImGui.TextUnformatted($"Status: {(active ? "on" : "off")}. Step: {step}");
         ImGui.TextUnformatted($"Filtered FATEs:");
         var fates = GetFates();
@@ -120,7 +131,25 @@ internal class DateWithDestiny : Feature
                 ImGui.TextUnformatted($"{fate.Name} @ {fate.Position} {Vector3.DistanceSquared(fate.Position, Svc.ClientState.LocalPlayer.Position)} {fate.Progress}% {fate.TimeRemaining}");
         ImGui.TextUnformatted($"Unfiltered FATEs:");
         foreach (var fate in Svc.Fates)
-            ImGui.TextUnformatted($"{fate.Name} @ {fate.Position} {fate.Progress} {fate.TimeRemaining}/{fate.Duration}");
+        {
+            ImGui.TextUnformatted($"{fate.Name} @ {fate.Position} {fate.Progress}% {fate.TimeRemaining}/{fate.Duration}");
+            ImGui.SameLine();
+            if (ImGui.Button($"P###{fate.FateId}"))
+            {
+                if (navmesh.IsRunning())
+                    navmesh.Stop();
+                else
+                    navmesh.PathfindAndMoveTo(fate.Position, Svc.Condition[ConditionFlag.InFlight]);
+            }
+            ImGui.SameLine();
+#if DEBUG
+            if (ImGui.Button($"T###{fate.FateId}"))
+                PositionDebug.SetPos(fate.Position);
+#endif
+            ImGui.SameLine();
+            if (ImGui.Button($"F###{fate.FateId}"))
+                CoordinatesHelper.Place(Svc.ClientState.TerritoryType, fate.Position.X, fate.Position.Z);
+        }
     };
 
     public override void Enable()
@@ -140,7 +169,7 @@ internal class DateWithDestiny : Feature
     private unsafe void OnUpdate(IFramework framework)
     {
         if (!active || Svc.Fates.Count == 0 || Svc.Condition[ConditionFlag.Unknown57]) return;
-        if (navmesh.IsRunning())
+        if (navmesh.IsRunning());
         {
             if (DistanceToTarget() > 5)
             {
@@ -253,7 +282,7 @@ internal class DateWithDestiny : Feature
         => Svc.Fates.Where(f => f.GameData.Rule == 1 && f.State != FateState.Preparation && (f.Duration <= 900 || f.Progress > 0) && f.Progress <= 90 && f.TimeRemaining > 120)
         .OrderBy(f => Vector3.DistanceSquared(Svc.ClientState.LocalPlayer.Position, f.Position));
     private unsafe GameObject GetFateMob()
-        => Svc.Objects.OrderByDescending(x => Vector3.DistanceSquared(x.Position, Svc.ClientState.LocalPlayer.Position))
+        => Svc.Objects.OrderBy(x => Vector3.DistanceSquared(x.Position, Svc.ClientState.LocalPlayer.Position))
         .ThenByDescending(x => (x as Character)?.MaxHp ?? 0)
         .ThenByDescending(x => ObjectFunctions.GetAttackableEnemyCountAroundPoint(x.Position, 5))
         .Where(x => x.Struct() != null && x.Struct()->FateId == FateID)

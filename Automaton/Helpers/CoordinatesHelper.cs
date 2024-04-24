@@ -1,6 +1,7 @@
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using ECommons.DalamudServices;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using Lumina.Excel.GeneratedSheets;
 using System;
 using System.Linq;
@@ -145,5 +146,36 @@ public static class CoordinatesHelper
             3 => new TextPayload(SeIconChar.Instance3.ToIconString()),
             _ => default,
         };
+    }
+
+    private static uint FlagIconId = 60561U;
+
+    private static int MapCordToInternal(double coord, double scale)
+        => (int)(coord - 100 - (2048 / scale)) / 2;
+
+    public static unsafe void Place(TerritoryType territory, float xCord, float yCord) => PlaceFromInternalCoords(territory.RowId, territory.Map.Row, xCord, yCord);
+    public static unsafe void Place(ushort territory, float xCord, float yCord) => PlaceFromInternalCoords(Svc.Data.GetExcelSheet<TerritoryType>().GetRow(territory).RowId, Svc.Data.GetExcelSheet<TerritoryType>().GetRow(territory).Map.Row, xCord, yCord);
+
+    public static unsafe void PlaceFromMapCoords(TerritoryType territory, float xCord, float yCord)
+    {
+        var sizeFactor = (territory.Map.Value?.SizeFactor ?? 100f) / 100f;
+        var x = MapCordToInternal(xCord * 100, sizeFactor);
+        var y = MapCordToInternal(yCord * 100, sizeFactor);
+        PlaceFromInternalCoords(territory.RowId, territory.Map.Row, x, y);
+    }
+
+    private static unsafe void PlaceFromInternalCoords(uint territoryId, uint mapId, float xCord, float yCord)
+    {
+        var territory = Svc.Data.GetExcelSheet<TerritoryType>().GetRow(territoryId);
+        var sizeFactor = (territory.Map.Value?.SizeFactor ?? 100f) / 100f;
+        var x = MapCordToInternal(xCord, sizeFactor);
+        var y = MapCordToInternal(yCord, sizeFactor);
+
+        Svc.Log.Debug($"TerritoryId: {territoryId} at ({xCord},{yCord}) coords, sizeFactor: {sizeFactor}, adjusted coords ({x},{y})");
+        var agentMap = AgentMap.Instance();
+        agentMap->IsFlagMarkerSet = 0;
+
+        agentMap->SetFlagMapMarker(territoryId, mapId, xCord, yCord, FlagIconId);
+        agentMap->OpenMap(mapId, territoryId);
     }
 }
