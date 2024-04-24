@@ -12,7 +12,6 @@ using ECommons.GameFunctions;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Fate;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
-using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
 using System;
@@ -131,7 +130,7 @@ internal class DateWithDestiny : Feature
         var fates = GetFates();
         if (fates != null)
             foreach (var fate in fates)
-                ImGui.TextUnformatted($"{fate.Name} @ {fate.Position} {Vector3.DistanceSquared(fate.Position, Svc.ClientState.LocalPlayer.Position)} {fate.Progress}% {fate.TimeRemaining}");
+                ImGui.TextUnformatted($"{fate.Name} @ {fate.Position} {fate.Progress}% {fate.TimeRemaining}");
         ImGui.TextUnformatted($"Unfiltered FATEs:");
         foreach (var fate in Svc.Fates)
         {
@@ -249,7 +248,8 @@ internal class DateWithDestiny : Feature
                 {
                     Svc.Log.Debug("Have Yokai minion equipped but not in appropiate zone. Teleporting");
                     step = "Swapping zones";
-                    Telepo.Instance()->Teleport(CoordinatesHelper.GetZoneMainAetheryte((uint)zones.First()), 0);
+                    if (!Svc.Condition[ConditionFlag.Casting])
+                        Telepo.Instance()->Teleport(CoordinatesHelper.GetZoneMainAetheryte((uint)zones.First()), 0);
                     return;
                 }
             }
@@ -308,8 +308,9 @@ internal class DateWithDestiny : Feature
     {
         var fate = FateManager.Instance()->GetFateById(fateID);
         var angle = random.NextDouble() * 2 * Math.PI;
-        var randomPoint = new Vector3((float)(fate->Radius / 2 * Math.Cos(angle)), fate->Location.Y, (float)(fate->Radius / 2 * Math.Sin(angle)));
-        return navmesh.NearestPoint(randomPoint, 5, 5);
+        var randomPoint = new Vector3((float)(fate->Location.X + (fate->Radius / 2 * Math.Cos(angle))), fate->Location.Y, (float)(fate->Location.Z + (fate->Radius / 2 * Math.Sin(angle))));
+        var point = navmesh.NearestPoint(randomPoint, 5, 5);
+        return (Vector3)(point != null ? point : fate->Location);
     }
 
     private void SyncFate(ushort value)

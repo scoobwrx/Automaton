@@ -3,6 +3,7 @@ using Automaton.IPC;
 using ECommons.DalamudServices;
 using FFXIVClientStructs.FFXIV.Client.Game.Fate;
 using ImGuiNET;
+using System;
 using System.Linq;
 using System.Numerics;
 
@@ -12,6 +13,8 @@ internal unsafe class FateDebug : DebugHelper
     public override string Name => $"{nameof(FateDebug).Replace("Debug", "")} Debugging";
 
     FateManager* fm = FateManager.Instance();
+    NavmeshIPC navmesh = new();
+    Random random = new();
 
     public override void Draw()
     {
@@ -33,10 +36,20 @@ internal unsafe class FateDebug : DebugHelper
         foreach (var fate in active)
         {
             ImGui.Text($"[{fate}] {fm->GetFateById(fate)->Name} ({fm->GetFateById(fate)->Duration}) {fm->GetFateById(fate)->Progress}%% <{fm->GetFateById(fate)->State}>");
-            ImGui.SameLine();
-            var loc = fm->GetFateById(fate)->Location;
-            var cmd = $"/vnavmesh moveto {loc.X} {loc.Y} {loc.Z}";
-            Svc.Log.Info($"executing command {cmd}");
         }
+
+        if (ImGui.Button("Get Random Point"))
+        {
+            Svc.Log.Info(GetRandomPointInFate(Svc.Fates.First().FateId).ToString());
+        }
+    }
+
+    private unsafe Vector3 GetRandomPointInFate(ushort fateID)
+    {
+        var fate = FateManager.Instance()->GetFateById(fateID);
+        var angle = random.NextDouble() * 2 * Math.PI;
+        var randomPoint = new Vector3((float)(fate->Location.X + (fate->Radius / 2 * Math.Cos(angle))), fate->Location.Y, (float)(fate->Location.Z + (fate->Radius / 2 * Math.Sin(angle))));
+        var x = navmesh.NearestPoint(randomPoint, 5, 5);
+        return (Vector3)(x != null ? x : Vector3.Zero);
     }
 }

@@ -22,6 +22,6 @@ internal class NavmeshIPC
     [EzIPC("Path.%m")] public readonly Action Stop;
     [EzIPC("Path.%m")] public readonly Func<bool> IsRunning;
 
-    [EzIPC("Query.Mesh.%m")] public readonly Func<Vector3, float, float, Vector3> NearestPoint;
-    [EzIPC("Query.Mesh.%m")] public readonly Func<Vector3, float, bool, Vector3> PointOnFloor;
+    [EzIPC("Query.Mesh.%m")] public readonly Func<Vector3, float, float, Vector3?> NearestPoint;
+    [EzIPC("Query.Mesh.%m")] public readonly Func<Vector3, float, bool, Vector3?> PointOnFloor;
 }
