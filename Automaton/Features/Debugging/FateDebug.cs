@@ -1,4 +1,5 @@
 using Automaton.Debugging;
+using Automaton.Features.Achievements;
 using Automaton.IPC;
 using ECommons.DalamudServices;
 using FFXIVClientStructs.FFXIV.Client.Game.Fate;
@@ -36,11 +37,6 @@ internal unsafe class FateDebug : DebugHelper
         foreach (var fate in active)
         {
             ImGui.Text($"[{fate}] {fm->GetFateById(fate)->Name} ({fm->GetFateById(fate)->Duration}) {fm->GetFateById(fate)->Progress}%% <{fm->GetFateById(fate)->State}>");
-        }
-
-        if (ImGui.Button("Get Random Point"))
-        {
-            Svc.Log.Info(GetRandomPointInFate(Svc.Fates.First().FateId).ToString());
         }
     }
 

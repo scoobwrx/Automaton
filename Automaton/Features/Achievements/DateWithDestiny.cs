@@ -84,13 +84,12 @@ internal class DateWithDestiny : Feature
             [Z.WesternLaNoscea, Z.EasternThanalan, Z.SouthShroud], // Hovernyan
             [Z.UpperLaNoscea, Z.SouthernThanalan, Z.NorthShroud], // Robonyan
             [Z.OuterLaNoscea, Z.MiddleLaNoscea, Z.WesternThanalan], // USApyon
-            [Z.CoerthasWesternHighlands, Z.TheDravanianForelands, Z.TheDravanianHinterlands, Z.TheChurningMists, Z.TheSeaofClouds, Z.AzysLla], // Lord Enma
+            [Z.TheFringes, Z.TheRubySea, Z.Yanxia, Z.ThePeaks, Z.TheLochs, Z.TheAzimSteppe], // Lord Enma
             [Z.CoerthasWesternHighlands, Z.TheDravanianForelands, Z.TheDravanianHinterlands, Z.TheChurningMists, Z.TheSeaofClouds, Z.AzysLla], // Lord Ananta
-            [Z.TheFringes, Z.TheRubySea, Z.Yanxia, Z.ThePeaks, Z.TheLochs, Z.TheAzimSteppe], // Zazel
+            [Z.CoerthasWesternHighlands, Z.TheDravanianForelands, Z.TheDravanianHinterlands, Z.TheChurningMists, Z.TheSeaofClouds, Z.AzysLla], // Zazel
             [Z.TheFringes, Z.TheRubySea, Z.Yanxia, Z.ThePeaks, Z.TheLochs, Z.TheAzimSteppe], // Damona
         ];
-    private readonly IEnumerable<(uint Minion, uint Medal, uint Weapon, List<Z> Zones)> yokai = YokaiMinions.Zip(YokaiLegendaryMedals, (x, y) => (Minion: x, Medal: y)).Zip(YokaiWeapons, (xy, z) => (xy.Minion, xy.Medal, Weapon: z)).Zip(YokaiZones, (wxy, z) => (wxy.Minion, wxy.Medal, wxy.Weapon, z));
-
+    private static readonly List<(uint Minion, uint Medal, uint Weapon, List<Z> Zones)> Yokai = YokaiMinions.Zip(YokaiLegendaryMedals, (x, y) => (Minion: x, Medal: y)).Zip(YokaiWeapons, (xy, z) => (xy.Minion, xy.Medal, Weapon: z)).Zip(YokaiZones, (wxy, z) => (wxy.Minion, wxy.Medal, wxy.Weapon, z)).ToList();
     private ushort nextFateID;
     private byte fateMaxLevel;
     private ushort fateID;
@@ -118,11 +117,11 @@ internal class DateWithDestiny : Feature
         if (Config.showDebugFeatures)
         {
             ImGui.SameLine();
-            if (ImGui.Button("Swap Yokai Zones"))
+            if (ImGui.Button("Get Current Minion Zones"))
             {
-                var zone = yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Zones;
-                var z = zone[zone.IndexOf(((Z)Svc.ClientState.TerritoryType) + 2) % zone.Count];
-                unsafe { Telepo.Instance()->Teleport(CoordinatesHelper.GetZoneMainAetheryte((uint)z), 0); }
+                if (Yokai.Any(x => x.Minion == CurrentCompanion))
+                    Svc.Chat.Print(string.Join(", ", Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Zones));
+                //unsafe { Telepo.Instance()->Teleport(CoordinatesHelper.GetZoneMainAetheryte((uint)z), 0); }
             }
         }
 #endif
@@ -229,13 +228,13 @@ internal class DateWithDestiny : Feature
                     Equip.EquipItem(15222);
                 }
                 // fate farm until 15 legendary medals
-                var medal = yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Medal;
+                var medal = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Medal;
                 if (InventoryManager.Instance()->GetInventoryItemCount(medal) >= 10)
                 {
                     // check for other companions, summon them, repeat
                     Svc.Log.Debug("Have 10 of the relevant Legendary Medal. Swapping minions");
                     step = "Swapping minions";
-                    var minion = yokai.FirstOrDefault(x => CompanionUnlocked(x.Minion) && GetItemCount(x.Medal) < 10 && GetItemCount(x.Weapon) < 1).Minion;
+                    var minion = Yokai.FirstOrDefault(x => CompanionUnlocked(x.Minion) && GetItemCount(x.Medal) < 10 && GetItemCount(x.Weapon) < 1).Minion;
                     if (minion != default)
                     {
                         ECommons.Automation.Chat.Instance.SendMessage($"/minion {Svc.Data.GetExcelSheet<Companion>().GetRow(minion).Singular}");
@@ -243,7 +242,7 @@ internal class DateWithDestiny : Feature
                     }
                 }
                 // get zone of minion
-                var zones = yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Zones;
+                var zones = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Zones;
                 // if not in zone, go to it
                 if (!zones.Contains((Z)Svc.ClientState.TerritoryType))
                 {
@@ -300,7 +299,7 @@ internal class DateWithDestiny : Feature
     private unsafe uint CurrentCompanion => Svc.ClientState.LocalPlayer.Struct()->Character.CompanionObject->Character.GameObject.DataID;
     private unsafe bool CompanionUnlocked(uint id) => UIState.Instance()->IsCompanionUnlocked(id);
     private unsafe bool HasWatchEquipped() => InventoryManager.Instance()->GetInventoryContainer(InventoryType.EquippedItems)->GetInventorySlot(10)->ItemID == YokaiWatch;
-    private unsafe bool HaveYokaiMinionsMissing() => yokai.Any(x => CompanionUnlocked(x.Minion));
+    private unsafe bool HaveYokaiMinionsMissing() => Yokai.Any(x => CompanionUnlocked(x.Minion));
     private unsafe int GetItemCount(uint itemID) => InventoryManager.Instance()->GetInventoryItemCount(itemID);
 
     private unsafe FateContext* CurrentFate => FateManager.Instance()->GetFateById(nextFateID);
