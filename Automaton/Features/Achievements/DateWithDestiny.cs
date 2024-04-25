@@ -39,13 +39,11 @@ internal class DateWithDestiny : Feature
         MiddleLaNoscea = 134,
         LowerLaNoscea = 135,
         EasternLaNoscea = 137,
-        WesternLaNoscea = 138,
         UpperLaNoscea = 139,
         WesternThanalan = 140,
         CentralThanalan = 141,
         EasternThanalan = 145,
         SouthernThanalan = 146,
-        NorthernThanalan = 147,
         CentralShroud = 148,
         EastShroud = 152,
         SouthShroud = 153,
@@ -68,6 +66,7 @@ internal class DateWithDestiny : Feature
     private const uint YokaiWatch = 15222;
     private static readonly List<uint> YokaiMinions = [200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 390, 391, 392, 393];
     private static readonly List<uint> YokaiLegendaryMedals = [15167, 15168, 15169, 15170, 15171, 15172, 15173, 15174, 15175, 15176, 15177, 15178, 15179, 15180, 30803, 30804, 30805, 30806];
+    private static readonly List<uint> YokaiWeapons = [15210, 15216, 15212, 15217, 15213, 15219, 15218, 15220, 15211, 15221, 15214, 15209, 30809, 30808, 30807, 30810];
     private static readonly List<List<Z>> YokaiZones =
         [
             [Z.CentralShroud, Z.LowerLaNoscea, Z.CentralThanalan], // Jibanyan
@@ -88,7 +87,7 @@ internal class DateWithDestiny : Feature
             [Z.TheFringes, Z.TheRubySea, Z.Yanxia, Z.ThePeaks, Z.TheLochs, Z.TheAzimSteppe], // Zazel
             [Z.TheFringes, Z.TheRubySea, Z.Yanxia, Z.ThePeaks, Z.TheLochs, Z.TheAzimSteppe], // Damona
         ];
-    private readonly IEnumerable<(uint Minion, uint Medal, List<Z> Zones)> yokai = YokaiMinions.Zip(YokaiLegendaryMedals, (x, y) => (Minion: x, Medal: y)).Zip(YokaiZones, (xy, z) => (xy.Minion, xy.Medal, z));
+    private readonly IEnumerable<(uint Minion, uint Medal, uint Weapon, List<Z> Zones)> yokai = YokaiMinions.Zip(YokaiLegendaryMedals, (x, y) => (Minion: x, Medal: y)).Zip(YokaiWeapons, (xy, z) => (xy.Minion, xy.Medal, Weapon: z)).Zip(YokaiZones, (wxy, z) => (wxy.Minion, wxy.Medal, wxy.Weapon, z));
 
     private ushort nextFateID;
     private byte fateMaxLevel;
@@ -232,9 +231,9 @@ internal class DateWithDestiny : Feature
                 if (InventoryManager.Instance()->GetInventoryItemCount(medal) >= 10)
                 {
                     // check for other companions, summon them, repeat
-                    Svc.Log.Debug("Have 15 of the relevant Legendary Medal. Swapping minions");
+                    Svc.Log.Debug("Have 10 of the relevant Legendary Medal. Swapping minions");
                     step = "Swapping minions";
-                    var minion = yokai.FirstOrDefault(x => CompanionUnlocked(x.Minion) && InventoryManager.Instance()->GetInventoryItemCount(x.Medal) < 10).Minion;
+                    var minion = yokai.FirstOrDefault(x => CompanionUnlocked(x.Minion) && GetItemCount(x.Medal) < 10 && GetItemCount(x.Weapon) < 1).Minion;
                     if (minion != default)
                     {
                         ECommons.Automation.Chat.Instance.SendMessage($"/minion {Svc.Data.GetExcelSheet<Companion>().GetRow(minion).Singular}");
@@ -300,6 +299,7 @@ internal class DateWithDestiny : Feature
     private unsafe bool CompanionUnlocked(uint id) => UIState.Instance()->IsCompanionUnlocked(id);
     private unsafe bool HasWatchEquipped() => InventoryManager.Instance()->GetInventoryContainer(InventoryType.EquippedItems)->GetInventorySlot(10)->ItemID == YokaiWatch;
     private unsafe bool HaveYokaiMinionsMissing() => yokai.Any(x => CompanionUnlocked(x.Minion));
+    private unsafe int GetItemCount(uint itemID) => InventoryManager.Instance()->GetInventoryItemCount(itemID);
 
     private unsafe FateContext* CurrentFate => FateManager.Instance()->GetFateById(nextFateID);
     private unsafe float DistanceToFate() => Vector3.DistanceSquared(CurrentFate->Location, Svc.ClientState.LocalPlayer.Position);
