@@ -24,7 +24,7 @@ namespace Automaton.Features.Achievements;
 internal class DateWithDestiny : Feature
 {
     public override string Name => "Date with Destiny";
-    public override string Description => "It's a FATE bot. Requires vnavmesh and whatever you want for combat. Yo-Kai mode can be activated by having a yokai minion summoned.";
+    public override string Description => "It's a FATE bot. Requires vnavmesh and whatever you want for combat.";
     public override FeatureType FeatureType => FeatureType.Achievements;
 
     private bool active = false;
@@ -64,6 +64,7 @@ internal class DateWithDestiny : Feature
         TheAzimSteppe = 622,
     }
 
+    private bool yokaiMode;
     private const uint YokaiWatch = 15222;
     private static readonly uint[] YokaiMinions = [200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 390, 391, 392, 393];
     private static readonly uint[] YokaiLegendaryMedals = [15168, 15169, 15170, 15171, 15172, 15173, 15174, 15175, 15176, 15177, 15178, 15179, 15180, 30805, 30804, 30803, 30806];
@@ -116,6 +117,9 @@ internal class DateWithDestiny : Feature
             active ^= true;
             navmesh.Stop();
         }
+        ImGui.SameLine();
+        if (ImGui.Button("Yo-Kai Mode (Very Experimental)"))
+            yokaiMode ^= true;
 #if DEBUG
         if (Config.showDebugFeatures)
         {
@@ -134,7 +138,7 @@ internal class DateWithDestiny : Feature
             }
         }
 #endif
-        ImGui.TextUnformatted($"Status: {(active ? "on" : "off")}");
+        ImGui.TextUnformatted($"Status: {(active ? "on" : "off")} (Yo-Kai: {(yokaiMode ? "on" : "off")}");
         ImGui.TextUnformatted($"Filtered FATEs:");
         var fates = GetFates();
         if (fates != null)
@@ -174,7 +178,7 @@ internal class DateWithDestiny : Feature
 
     private unsafe void OnUpdate(IFramework framework)
     {
-        if (!active || Svc.Fates.Count == 0 || Svc.Condition[ConditionFlag.Unknown57]) return;
+        if (!active || Svc.Fates.Count == 0 || Svc.Condition[ConditionFlag.Unknown57] || Svc.Condition[ConditionFlag.Casting]) return;
         if (navmesh.IsRunning())
         {
             if (DistanceToTarget() <= 5)
@@ -214,30 +218,33 @@ internal class DateWithDestiny : Feature
 
         if (cf is null)
         {
-            if (YokaiMinions.Contains(CurrentCompanion))
+            if (yokaiMode)
             {
-                if (HaveYokaiMinionsMissing() && !HasWatchEquipped() && GetItemCount(YokaiWatch) > 0)
-                    Equip.EquipItem(15222);
-
-                var medal = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Medal;
-                if (GetItemCount(medal) >= 10)
+                if (YokaiMinions.Contains(CurrentCompanion))
                 {
-                    Svc.Log.Debug("Have 10 of the relevant Legendary Medal. Swapping minions");
-                    var minion = Yokai.FirstOrDefault(x => CompanionUnlocked(x.Minion) && GetItemCount(x.Medal) < 10 && GetItemCount(x.Weapon) < 1).Minion;
-                    if (minion != default)
+                    if (HaveYokaiMinionsMissing() && !HasWatchEquipped() && GetItemCount(YokaiWatch) > 0)
+                        Equip.EquipItem(15222);
+
+                    var medal = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Medal;
+                    if (GetItemCount(medal) >= 10)
                     {
-                        ECommons.Automation.Chat.Instance.SendMessage($"/minion {Svc.Data.GetExcelSheet<Companion>().GetRow(minion).Singular}");
+                        Svc.Log.Debug("Have 10 of the relevant Legendary Medal. Swapping minions");
+                        var minion = Yokai.FirstOrDefault(x => CompanionUnlocked(x.Minion) && GetItemCount(x.Medal) < 10 && GetItemCount(x.Weapon) < 1).Minion;
+                        if (minion != default)
+                        {
+                            ECommons.Automation.Chat.Instance.SendMessage($"/minion {Svc.Data.GetExcelSheet<Companion>().GetRow(minion).Singular}");
+                            return;
+                        }
+                    }
+
+                    var zones = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Zones;
+                    if (!zones.Contains((Z)Svc.ClientState.TerritoryType))
+                    {
+                        Svc.Log.Debug("Have Yokai minion equipped but not in appropiate zone. Teleporting");
+                        if (!Svc.Condition[ConditionFlag.Casting])
+                            Telepo.Instance()->Teleport(CoordinatesHelper.GetZoneMainAetheryte((uint)zones.First()), 0);
                         return;
                     }
-                }
-
-                var zones = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Zones;
-                if (!zones.Contains((Z)Svc.ClientState.TerritoryType))
-                {
-                    Svc.Log.Debug("Have Yokai minion equipped but not in appropiate zone. Teleporting");
-                    if (!Svc.Condition[ConditionFlag.Casting])
-                        Telepo.Instance()->Teleport(CoordinatesHelper.GetZoneMainAetheryte((uint)zones.First()), 0);
-                    return;
                 }
             }
 
@@ -299,9 +306,9 @@ internal class DateWithDestiny : Feature
         return (Vector3)(point != null ? point : fate->Location);
     }
 
-    private void SyncFate(ushort value)
+    private unsafe void SyncFate(ushort value)
     {
-        if (value != 0)
+        if (value != 0 && PlayerState.Instance()->IsLevelSynced == 0)
         {
             if (Svc.ClientState.LocalPlayer.Level > fateMaxLevel)
                 ECommons.Automation.Chat.Instance.SendMessage("/lsync");

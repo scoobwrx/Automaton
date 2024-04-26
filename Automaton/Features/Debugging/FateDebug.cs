@@ -3,6 +3,7 @@ using Automaton.Features.Achievements;
 using Automaton.IPC;
 using ECommons.DalamudServices;
 using FFXIVClientStructs.FFXIV.Client.Game.Fate;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using ImGuiNET;
 using System;
 using System.Linq;
@@ -19,7 +20,7 @@ internal unsafe class FateDebug : DebugHelper
 
     public override void Draw()
     {
-        ImGui.Text($"{Name}");
+        ImGui.TextUnformatted($"{Name}");
         ImGui.Separator();
 
         if (fm == null) return;
@@ -29,14 +30,17 @@ internal unsafe class FateDebug : DebugHelper
             .Select(f => f.Value->FateId)
             .ToList();
 
+        var ps = PlayerState.Instance();
+        if (ps != null)
+            ImGui.TextUnformatted($"Level Synced: {ps->IsLevelSynced}");
         if (fm->CurrentFate != null)
-            ImGui.Text($"Current Fate: [{fm->CurrentFate->FateId}] {fm->CurrentFate->Name} ({fm->CurrentFate->Duration}) {fm->CurrentFate->Progress}%% <{fm->CurrentFate->State}>");
+            ImGui.TextUnformatted($"Current Fate: [{fm->CurrentFate->FateId}] {fm->CurrentFate->Name} ({fm->CurrentFate->Duration}) {fm->CurrentFate->Progress}%% <{fm->CurrentFate->State}>");
 
         ImGui.Separator();
 
         foreach (var fate in active)
         {
-            ImGui.Text($"[{fate}] {fm->GetFateById(fate)->Name} ({fm->GetFateById(fate)->Duration}) {fm->GetFateById(fate)->Progress}%% <{fm->GetFateById(fate)->State}>");
+            ImGui.TextUnformatted($"[{fate}] {fm->GetFateById(fate)->Name} ({fm->GetFateById(fate)->Duration}) {fm->GetFateById(fate)->Progress}%% <{fm->GetFateById(fate)->State}>");
         }
     }
 
