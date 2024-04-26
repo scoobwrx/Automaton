@@ -65,30 +65,34 @@ internal class DateWithDestiny : Feature
     }
 
     private const uint YokaiWatch = 15222;
-    private static readonly List<uint> YokaiMinions = [200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 390, 391, 392, 393];
-    private static readonly List<uint> YokaiLegendaryMedals = [15168, 15169, 15170, 15171, 15172, 15173, 15174, 15175, 15176, 15177, 15178, 15179, 15180, 30803, 30804, 30805, 30806];
-    private static readonly List<uint> YokaiWeapons = [15210, 15216, 15212, 15217, 15213, 15219, 15218, 15220, 15211, 15221, 15214, 15209, 30809, 30808, 30807, 30810];
-    private static readonly List<List<Z>> YokaiZones =
-        [
-            [Z.CentralShroud, Z.LowerLaNoscea, Z.CentralThanalan], // Jibanyan
-            [Z.EastShroud, Z.WesternLaNoscea, Z.EasternThanalan], // Komasan
-            [Z.SouthShroud, Z.UpperLaNoscea, Z.SouthernThanalan], // Whisper
-            [Z.NorthShroud, Z.OuterLaNoscea, Z.MiddleLaNoscea], // Blizzaria
-            [Z.WesternThanalan, Z.CentralShroud, Z.LowerLaNoscea], // Kyubi
-            [Z.CentralThanalan, Z.EastShroud, Z.WesternLaNoscea], // Komajiro
-            [Z.EasternThanalan, Z.SouthShroud, Z.UpperLaNoscea], // Manjimutt
-            [Z.SouthernThanalan, Z.NorthShroud, Z.OuterLaNoscea], // Noko
-            [Z.MiddleLaNoscea, Z.WesternThanalan, Z.CentralShroud], // Venoct
-            [Z.LowerLaNoscea, Z.CentralThanalan, Z.EastShroud], // Shogunyan
-            [Z.WesternLaNoscea, Z.EasternThanalan, Z.SouthShroud], // Hovernyan
-            [Z.UpperLaNoscea, Z.SouthernThanalan, Z.NorthShroud], // Robonyan
-            [Z.OuterLaNoscea, Z.MiddleLaNoscea, Z.WesternThanalan], // USApyon
-            [Z.TheFringes, Z.TheRubySea, Z.Yanxia, Z.ThePeaks, Z.TheLochs, Z.TheAzimSteppe], // Lord Enma
-            [Z.CoerthasWesternHighlands, Z.TheDravanianForelands, Z.TheDravanianHinterlands, Z.TheChurningMists, Z.TheSeaofClouds, Z.AzysLla], // Lord Ananta
-            [Z.CoerthasWesternHighlands, Z.TheDravanianForelands, Z.TheDravanianHinterlands, Z.TheChurningMists, Z.TheSeaofClouds, Z.AzysLla], // Zazel
-            [Z.TheFringes, Z.TheRubySea, Z.Yanxia, Z.ThePeaks, Z.TheLochs, Z.TheAzimSteppe], // Damona
-        ];
-    private static readonly List<(uint Minion, uint Medal, uint Weapon, List<Z> Zones)> Yokai = YokaiMinions.Zip(YokaiLegendaryMedals, (x, y) => (Minion: x, Medal: y)).Zip(YokaiWeapons, (xy, z) => (xy.Minion, xy.Medal, Weapon: z)).Zip(YokaiZones, (wxy, z) => (wxy.Minion, wxy.Medal, wxy.Weapon, z)).ToList();
+    private static readonly uint[] YokaiMinions = [200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 390, 391, 392, 393];
+    private static readonly uint[] YokaiLegendaryMedals = [15168, 15169, 15170, 15171, 15172, 15173, 15174, 15175, 15176, 15177, 15178, 15179, 15180, 30805, 30804, 30803, 30806];
+    private static readonly uint[] YokaiWeapons = [15210, 15216, 15212, 15217, 15213, 15219, 15218, 15220, 15211, 15221, 15214, 15215, 15209, 30809, 30808, 30807, 30810];
+    private static readonly Z[][] YokaiZones =
+    [
+        [Z.CentralShroud, Z.LowerLaNoscea, Z.CentralThanalan], // Jibanyan
+        [Z.EastShroud, Z.WesternLaNoscea, Z.EasternThanalan], // Komasan
+        [Z.SouthShroud, Z.UpperLaNoscea, Z.SouthernThanalan], // Whisper
+        [Z.NorthShroud, Z.OuterLaNoscea, Z.MiddleLaNoscea], // Blizzaria
+        [Z.WesternThanalan, Z.CentralShroud, Z.LowerLaNoscea], // Kyubi
+        [Z.CentralThanalan, Z.EastShroud, Z.WesternLaNoscea], // Komajiro
+        [Z.EasternThanalan, Z.SouthShroud, Z.UpperLaNoscea], // Manjimutt
+        [Z.SouthernThanalan, Z.NorthShroud, Z.OuterLaNoscea], // Noko
+        [Z.MiddleLaNoscea, Z.WesternThanalan, Z.CentralShroud], // Venoct
+        [Z.LowerLaNoscea, Z.CentralThanalan, Z.EastShroud], // Shogunyan
+        [Z.WesternLaNoscea, Z.EasternThanalan, Z.SouthShroud], // Hovernyan
+        [Z.UpperLaNoscea, Z.SouthernThanalan, Z.NorthShroud], // Robonyan
+        [Z.OuterLaNoscea, Z.MiddleLaNoscea, Z.WesternThanalan], // USApyon
+        [Z.TheFringes, Z.TheRubySea, Z.Yanxia, Z.ThePeaks, Z.TheLochs, Z.TheAzimSteppe], // Lord Enma
+        [Z.CoerthasWesternHighlands, Z.TheDravanianForelands, Z.TheDravanianHinterlands, Z.TheChurningMists, Z.TheSeaofClouds, Z.AzysLla], // Lord Ananta
+        [Z.CoerthasWesternHighlands, Z.TheDravanianForelands, Z.TheDravanianHinterlands, Z.TheChurningMists, Z.TheSeaofClouds, Z.AzysLla], // Zazel
+        [Z.TheFringes, Z.TheRubySea, Z.Yanxia, Z.ThePeaks, Z.TheLochs, Z.TheAzimSteppe], // Damona
+    ];
+    private static readonly List<(uint Minion, uint Medal, uint Weapon, Z[] Zones)> Yokai = YokaiMinions
+        .Zip(YokaiLegendaryMedals, (x, y) => (Minion: x, Medal: y))
+        .Zip(YokaiWeapons, (xy, z) => (xy.Minion, xy.Medal, Weapon: z))
+        .Zip(YokaiZones, (wxy, z) => (wxy.Minion, wxy.Medal, wxy.Weapon, z))
+        .ToList();
 
     private ushort nextFateID;
     private byte fateMaxLevel;
