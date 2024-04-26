@@ -25,6 +25,7 @@ public partial class AutoAdjustRetainerListings : Feature
     public override string Name => "Auto Adjust Retainer Listings";
     public override string Description => "Adjusts your retainers' items upon opening listings. Interrupt with Shift.";
     public override FeatureType FeatureType => FeatureType.UI;
+    public override bool isDebug => true;
 
     public bool Initialized { get; set; }
 
