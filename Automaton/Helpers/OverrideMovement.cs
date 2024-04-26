@@ -1,8 +1,10 @@
+using Dalamud.Game.Config;
 using ECommons.DalamudServices;
 using ECommons.EzHookManager;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using static Automaton.Helpers.NumberHelper;
 
 namespace Automaton.Helpers;
 
@@ -42,26 +44,48 @@ public unsafe class OverrideMovement
     public Vector3 DesiredPosition;
     public float Precision = 0.01f;
 
+    private bool _legacyMode;
+
+    private delegate bool RMIWalkIsInputEnabled(void* self);
+    private RMIWalkIsInputEnabled _rmiWalkIsInputEnabled1;
+    private RMIWalkIsInputEnabled _rmiWalkIsInputEnabled2;
+
     private delegate void RMIWalkDelegate(void* self, float* sumLeft, float* sumForward, float* sumTurnLeft, byte* haveBackwardOrStrafe, byte* a6, byte bAdditiveUnk);
     [EzHook("E8 ?? ?? ?? ?? 80 7B 3E 00 48 8D 3D", false)]
-    private readonly EzHook<RMIWalkDelegate> RMIWalkHook = null!;
+    private EzHook<RMIWalkDelegate> RMIWalkHook = null!;
 
     private delegate void RMIFlyDelegate(void* self, PlayerMoveControllerFlyInput* result);
     [EzHook("E8 ?? ?? ?? ?? 0F B6 0D ?? ?? ?? ?? B8", false)]
-    private readonly EzHook<RMIFlyDelegate> RMIFlyHook = null!;
+    private EzHook<RMIFlyDelegate> RMIFlyHook = null!;
 
     public OverrideMovement()
     {
         EzSignatureHelper.Initialize(this);
         Svc.Log.Information($"RMIWalk address: 0x{RMIWalkHook.Address:X}");
         Svc.Log.Information($"RMIFly address: 0x{RMIFlyHook.Address:X}");
+
+        var rmiWalkIsInputEnabled1Addr = Svc.SigScanner.ScanText("E8 ?? ?? ?? ?? 84 C0 75 10 38 43 3C");
+        var rmiWalkIsInputEnabled2Addr = Svc.SigScanner.ScanText("E8 ?? ?? ?? ?? 84 C0 75 03 88 47 3F");
+        Svc.Log.Information($"RMIWalkIsInputEnabled1 address: 0x{rmiWalkIsInputEnabled1Addr:X}");
+        Svc.Log.Information($"RMIWalkIsInputEnabled2 address: 0x{rmiWalkIsInputEnabled2Addr:X}");
+        _rmiWalkIsInputEnabled1 = Marshal.GetDelegateForFunctionPointer<RMIWalkIsInputEnabled>(rmiWalkIsInputEnabled1Addr);
+        _rmiWalkIsInputEnabled2 = Marshal.GetDelegateForFunctionPointer<RMIWalkIsInputEnabled>(rmiWalkIsInputEnabled2Addr);
+
+        Svc.GameConfig.UiControlChanged += OnConfigChanged;
+        UpdateLegacyMode();
+    }
+
+    public void Dispose()
+    {
+        Svc.GameConfig.UiControlChanged -= OnConfigChanged;
     }
 
     private void RMIWalkDetour(void* self, float* sumLeft, float* sumForward, float* sumTurnLeft, byte* haveBackwardOrStrafe, byte* a6, byte bAdditiveUnk)
     {
         RMIWalkHook.Original(self, sumLeft, sumForward, sumTurnLeft, haveBackwardOrStrafe, a6, bAdditiveUnk);
         // TODO: we really need to introduce some extra checks that PlayerMoveController::readInput does - sometimes it skips reading input, and returning something non-zero breaks stuff...
-        if (bAdditiveUnk == 0 && (IgnoreUserInput || (*sumLeft == 0 && *sumForward == 0)) && DirectionToDestination(false) is var relDir && relDir != null)
+        bool movementAllowed = bAdditiveUnk == 0 && _rmiWalkIsInputEnabled1(self) && _rmiWalkIsInputEnabled2(self); //&& !Service.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BeingMoved];
+        if (movementAllowed && (IgnoreUserInput || *sumLeft == 0 && *sumForward == 0) && DirectionToDestination(false) is var relDir && relDir != null)
         {
             var dir = relDir.Value.h.ToDirection();
             *sumLeft = dir.X;
@@ -73,7 +97,7 @@ public unsafe class OverrideMovement
     {
         RMIFlyHook.Original(self, result);
         // TODO: we really need to introduce some extra checks that PlayerMoveController::readInput does - sometimes it skips reading input, and returning something non-zero breaks stuff...
-        if ((IgnoreUserInput || (result->Forward == 0 && result->Left == 0 && result->Up == 0)) && DirectionToDestination(true) is var relDir && relDir != null)
+        if ((IgnoreUserInput || result->Forward == 0 && result->Left == 0 && result->Up == 0) && DirectionToDestination(true) is var relDir && relDir != null)
         {
             var dir = relDir.Value.h.ToDirection();
             result->Forward = dir.Y;
@@ -82,7 +106,7 @@ public unsafe class OverrideMovement
         }
     }
 
-    private (NumberHelper.Angle h, NumberHelper.Angle v)? DirectionToDestination(bool allowVertical)
+    private (Angle h, Angle v)? DirectionToDestination(bool allowVertical)
     {
         var player = Svc.ClientState.LocalPlayer;
         if (player == null)
@@ -92,11 +116,19 @@ public unsafe class OverrideMovement
         if (dist.LengthSquared() <= Precision * Precision)
             return null;
 
-        var dirH = NumberHelper.Angle.FromDirection(dist.X, dist.Z);
-        var dirV = allowVertical ? NumberHelper.Angle.FromDirection(dist.Y, new Vector2(dist.X, dist.Z).Length()) : default;
+        var dirH = Angle.FromDirectionXZ(dist);
+        var dirV = allowVertical ? Angle.FromDirection(new(dist.Y, new Vector2(dist.X, dist.Z).Length())) : default;
 
-        var camera = (CameraEx*)CameraManager.Instance()->GetActiveCamera();
-        var cameraDir = camera->DirH.Radians() + 180.Degrees();
-        return (dirH - cameraDir, dirV);
+        var refDir = _legacyMode
+            ? ((CameraEx*)CameraManager.Instance()->GetActiveCamera())->DirH.Radians() + 180.Degrees()
+            : player.Rotation.Radians();
+        return (dirH - refDir, dirV);
+    }
+
+    private void OnConfigChanged(object? sender, ConfigChangeEvent evt) => UpdateLegacyMode();
+    private void UpdateLegacyMode()
+    {
+        _legacyMode = Svc.GameConfig.UiControl.TryGetUInt("MoveMode", out var mode) && mode == 1;
+        Svc.Log.Info($"Legacy mode is now {(_legacyMode ? "enabled" : "disabled")}");
     }
 }
