@@ -28,7 +28,6 @@ internal class DateWithDestiny : Feature
     public override FeatureType FeatureType => FeatureType.Achievements;
 
     private bool active = false;
-    private string step;
     private static Vector3 TargetPos;
     private Throttle action = new();
     private NavmeshIPC navmesh;
@@ -67,7 +66,7 @@ internal class DateWithDestiny : Feature
 
     private const uint YokaiWatch = 15222;
     private static readonly List<uint> YokaiMinions = [200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 390, 391, 392, 393];
-    private static readonly List<uint> YokaiLegendaryMedals = [15167, 15168, 15169, 15170, 15171, 15172, 15173, 15174, 15175, 15176, 15177, 15178, 15179, 15180, 30803, 30804, 30805, 30806];
+    private static readonly List<uint> YokaiLegendaryMedals = [15168, 15169, 15170, 15171, 15172, 15173, 15174, 15175, 15176, 15177, 15178, 15179, 15180, 30803, 30804, 30805, 30806];
     private static readonly List<uint> YokaiWeapons = [15210, 15216, 15212, 15217, 15213, 15219, 15218, 15220, 15211, 15221, 15214, 15209, 30809, 30808, 30807, 30810];
     private static readonly List<List<Z>> YokaiZones =
         [
@@ -90,6 +89,7 @@ internal class DateWithDestiny : Feature
             [Z.TheFringes, Z.TheRubySea, Z.Yanxia, Z.ThePeaks, Z.TheLochs, Z.TheAzimSteppe], // Damona
         ];
     private static readonly List<(uint Minion, uint Medal, uint Weapon, List<Z> Zones)> Yokai = YokaiMinions.Zip(YokaiLegendaryMedals, (x, y) => (Minion: x, Medal: y)).Zip(YokaiWeapons, (xy, z) => (xy.Minion, xy.Medal, Weapon: z)).Zip(YokaiZones, (wxy, z) => (wxy.Minion, wxy.Medal, wxy.Weapon, z)).ToList();
+
     private ushort nextFateID;
     private byte fateMaxLevel;
     private ushort fateID;
@@ -110,7 +110,6 @@ internal class DateWithDestiny : Feature
         if (ImGui.Button("Start/Stop"))
         {
             active ^= true;
-            step = string.Empty;
             navmesh.Stop();
         }
 #if DEBUG
@@ -123,9 +122,15 @@ internal class DateWithDestiny : Feature
                     Svc.Chat.Print(string.Join(", ", Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Zones));
                 //unsafe { Telepo.Instance()->Teleport(CoordinatesHelper.GetZoneMainAetheryte((uint)z), 0); }
             }
+            ImGui.SameLine();
+            if (ImGui.Button("print yokai"))
+            {
+                foreach (var x in Yokai)
+                    Svc.Chat.Print($"{Svc.Data.GetExcelSheet<Companion>().GetRow(x.Minion).Singular}: {Svc.Data.GetExcelSheet<Item>().GetRow(x.Medal).Singular}/{Svc.Data.GetExcelSheet<Item>().GetRow(x.Weapon).Singular}/{string.Join(",", x.Zones)}");
+            }
         }
 #endif
-        ImGui.TextUnformatted($"Status: {(active ? "on" : "off")}. Step: {step}");
+        ImGui.TextUnformatted($"Status: {(active ? "on" : "off")}");
         ImGui.TextUnformatted($"Filtered FATEs:");
         var fates = GetFates();
         if (fates != null)
@@ -141,16 +146,8 @@ internal class DateWithDestiny : Feature
                 if (navmesh.IsRunning())
                     navmesh.Stop();
                 else
-                    navmesh.PathfindAndMoveTo(fate.Position, Svc.Condition[ConditionFlag.InFlight]);
+                    navmesh.PathfindAndMoveTo(GetRandomPointInFate(fate.FateId), Svc.Condition[ConditionFlag.InFlight]);
             }
-#if DEBUG
-            if (Config.showDebugFeatures)
-            {
-                ImGui.SameLine();
-                if (ImGui.Button($"T###{fate.FateId}"))
-                    PositionDebug.SetPos(fate.Position);
-            }
-#endif
             ImGui.SameLine();
             if (ImGui.Button($"F###{fate.FateId}"))
                 CoordinatesHelper.Place(Svc.ClientState.TerritoryType, fate.Position.X, fate.Position.Z);
@@ -176,13 +173,10 @@ internal class DateWithDestiny : Feature
         if (!active || Svc.Fates.Count == 0 || Svc.Condition[ConditionFlag.Unknown57]) return;
         if (navmesh.IsRunning())
         {
-            if (DistanceToTarget() > 5)
-            {
-                step = "Naving to FATE";
-                return;
-            }
-            else
+            if (DistanceToTarget() <= 5)
                 navmesh.Stop();
+            else
+                return;
         }
 
         if (Svc.Condition[ConditionFlag.InCombat] && !Svc.Condition[ConditionFlag.Mounted]) return;
@@ -200,12 +194,10 @@ internal class DateWithDestiny : Feature
                 {
                     if (Svc.Targets.Target == null)
                     {
-                        step = "Targeting new FATE mob";
                         Svc.Targets.Target = target;
                     }
                     if (!navmesh.PathfindInProgress())
                     {
-                        step = "Moving to new mob";
                         TargetPos = target.Position;
                         navmesh.PathfindAndMoveTo(TargetPos, false);
                         return;
@@ -220,20 +212,13 @@ internal class DateWithDestiny : Feature
         {
             if (YokaiMinions.Contains(CurrentCompanion))
             {
-                // if watch isn't equipped, equip it
-                if (HaveYokaiMinionsMissing() && !HasWatchEquipped() && InventoryManager.Instance()->GetInventoryItemCount(YokaiWatch) > 0)
-                {
-                    Svc.Log.Debug("Equipping watch watch");
-                    step = "Equipping Yo-Kai watch";
+                if (HaveYokaiMinionsMissing() && !HasWatchEquipped() && GetItemCount(YokaiWatch) > 0)
                     Equip.EquipItem(15222);
-                }
-                // fate farm until 15 legendary medals
+
                 var medal = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Medal;
-                if (InventoryManager.Instance()->GetInventoryItemCount(medal) >= 10)
+                if (GetItemCount(medal) >= 10)
                 {
-                    // check for other companions, summon them, repeat
                     Svc.Log.Debug("Have 10 of the relevant Legendary Medal. Swapping minions");
-                    step = "Swapping minions";
                     var minion = Yokai.FirstOrDefault(x => CompanionUnlocked(x.Minion) && GetItemCount(x.Medal) < 10 && GetItemCount(x.Weapon) < 1).Minion;
                     if (minion != default)
                     {
@@ -241,28 +226,25 @@ internal class DateWithDestiny : Feature
                         return;
                     }
                 }
-                // get zone of minion
+
                 var zones = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Zones;
-                // if not in zone, go to it
                 if (!zones.Contains((Z)Svc.ClientState.TerritoryType))
                 {
                     Svc.Log.Debug("Have Yokai minion equipped but not in appropiate zone. Teleporting");
-                    step = "Swapping zones";
                     if (!Svc.Condition[ConditionFlag.Casting])
                         Telepo.Instance()->Teleport(CoordinatesHelper.GetZoneMainAetheryte((uint)zones.First()), 0);
                     return;
                 }
             }
+
             if (!Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.Casting])
             {
-                step = "Mounting";
                 ExecuteMount();
                 return;
             }
 
             if (Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight])
             {
-                step = "Jumping";
                 ExecuteJump();
                 return;
             }
@@ -271,7 +253,6 @@ internal class DateWithDestiny : Feature
             if (nextFate is not null && Svc.Condition[ConditionFlag.InFlight] && !navmesh.PathfindInProgress())
             {
                 Svc.Log.Debug("Finding path to fate");
-                step = "Finding path to fate";
                 nextFateID = nextFate.FateId;
                 TargetPos = nextFate.Position;
                 navmesh.PathfindAndMoveTo(TargetPos, true);
