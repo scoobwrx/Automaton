@@ -23,9 +23,8 @@ namespace Automaton.Features.Testing;
 public partial class AutoAdjustRetainerListings : Feature
 {
     public override string Name => "Auto Adjust Retainer Listings";
-    public override string Description => "Adjusts your retainers' items upon opening listings. Interrupt with Shift.";
+    public override string Description => "If I hear a single message about the feature again I will go scorched earth. Interrupt with Shift.";
     public override FeatureType FeatureType => FeatureType.UI;
-    public override bool isDebug => true;
 
     public bool Initialized { get; set; }
 
