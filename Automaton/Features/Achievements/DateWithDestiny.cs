@@ -214,14 +214,14 @@ internal class DateWithDestiny : Feature
             active ^= true;
             navmesh.Stop();
         }
-        ImGui.SameLine();
-        if (ImGuiComponents.IconButtonWithText((FontAwesomeIcon)0xf002, "Browse"))
-        {
-            new TerritorySelector(SelectedTerritory, (_, x) =>
-            {
-                SelectedTerritory = x;
-            });
-        }
+        //ImGui.SameLine();
+        //if (ImGuiComponents.IconButtonWithText((FontAwesomeIcon)0xf002, "Browse"))
+        //{
+        //    new TerritorySelector(SelectedTerritory, (_, x) =>
+        //    {
+        //        SelectedTerritory = x;
+        //    });
+        //}
 
         foreach (var fate in Svc.Fates.OrderBy(x => Vector3.DistanceSquared(x.Position, Svc.ClientState.LocalPlayer.Position)))
         {
