@@ -1,6 +1,6 @@
-﻿using System;
+using System;
 
-namespace visland.Helpers;
+namespace Automaton.Helpers;
 
 class Throttle
 {

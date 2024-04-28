@@ -228,7 +228,7 @@ internal unsafe class AchievementTracker : Feature
                 if (ImGui.IsItemHovered()) ImGui.SetTooltip($"[{achv.Points}pts] {achv.Description}");
 
                 ImGui.NextColumn();
-                DrawProgressBar((int)achv.CurrentProgress, (int)achv.MaxProgress);
+                Misc.DrawProgressBar((int)achv.CurrentProgress, (int)achv.MaxProgress, Config.BarColour);
                 ImGui.SameLine();
                 ImGui.SetCursorPosX(ImGui.GetContentRegionMax().X - Misc.IconUnitWidth() - ImGui.GetStyle().WindowPadding.X);
                 if (ImGuiComponents.IconButton((int)achv.ID, FontAwesomeIcon.Trash))
@@ -238,31 +238,6 @@ internal unsafe class AchievementTracker : Feature
                 }
                 ImGui.Columns(1);
             }
-        }
-        catch (Exception e) { e.Log(); }
-    }
-
-    // https://github.com/KazWolfe/CollectorsAnxiety/blob/bf48a4b0681e5f70fb67e3b1cb22b4565ecfcc02/CollectorsAnxiety/Util/ImGuiUtil.cs#L10
-    private void DrawProgressBar(int progress, int total)
-    {
-        try
-        {
-            ImGui.BeginGroup();
-
-            var cursor = ImGui.GetCursorPos();
-            var sizeVec = new Vector2(ImGui.GetContentRegionAvail().X - Misc.IconUnitWidth() - (ImGui.GetStyle().WindowPadding.X * 2), Misc.IconUnitHeight());
-
-            var percentage = progress / (float)total;
-            var label = string.Format("{0:P} Complete ({1} / {2})", percentage, progress, total);
-            var labelSize = ImGui.CalcTextSize(label);
-
-            using var _ = ImRaii.PushColor(ImGuiCol.PlotHistogram, Config.BarColour);
-            ImGui.ProgressBar(percentage, sizeVec, "");
-
-            ImGui.SetCursorPos(new Vector2(cursor.X + sizeVec.X - labelSize.X - 4, cursor.Y));
-            ImGuiEx.TextV(label);
-
-            ImGui.EndGroup();
         }
         catch (Exception e) { e.Log(); }
     }

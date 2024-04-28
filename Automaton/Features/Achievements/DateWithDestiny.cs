@@ -3,35 +3,47 @@ using Automaton.Features.Debugging;
 using Automaton.FeaturesSetup;
 using Automaton.Helpers;
 using Automaton.IPC;
+using Automaton.UI;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Fates;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Game.Command;
+using Dalamud.Interface;
+using Dalamud.Interface.Components;
+using Dalamud.Interface.Utility.Raii;
 using ECommons.DalamudServices;
 using ECommons.GameFunctions;
+using ECommons.GameHelpers;
+using ECommons.ImGuiMethods;
+using ECommons.ImGuiMethods.TerritorySelection;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Fate;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using visland.Helpers;
 
 namespace Automaton.Features.Achievements;
 internal class DateWithDestiny : Feature
 {
     public override string Name => "Date with Destiny";
-    public override string Description => "It's a FATE bot. Requires vnavmesh and whatever you want for combat.";
+    public override string Description => $"It's a FATE bot. Requires vnavmesh and whatever you want for combat. Open tracker with {Command}";
     public override FeatureType FeatureType => FeatureType.Achievements;
+    public static string Command => "/vfate";
+    private readonly List<string> registeredCommands = [];
 
+    private BasicWindow window;
     private bool active = false;
     private static Vector3 TargetPos;
     private Throttle action = new();
     private NavmeshIPC navmesh;
     private Random random;
+    internal uint SelectedTerritory = 0;
 
     private enum Z
     {
@@ -110,61 +122,67 @@ internal class DateWithDestiny : Feature
         }
     }
 
+    public Configs Config { get; private set; }
+    public class Configs : FeatureConfig
+    {
+        public List<uint> blacklist = [];
+        public List<uint> whitelist = [];
+        public List<uint> zones = [];
+        public bool yokaiMode;
+        public bool fullAuto = true;
+        public bool autoMount = true;
+        public bool autoFly = true;
+        public bool pathToNextFate = true;
+        public bool autoSync = true;
+        public bool autoTargetMobs = true;
+        public bool autoMoveToMobs = true;
+        public float MaxDuration = 900;
+        public float MinTimeRemaining = 120;
+        public float MaxProgress = 90;
+    }
+
     protected override DrawConfigDelegate DrawConfigTree => (ref bool hasChanged) =>
     {
-        if (ImGui.Button("Start/Stop"))
+        if (ImGui.Checkbox("Yo-Kai Mode (Very Experimental)", ref yokaiMode)) hasChanged = true;
+        if (ImGui.Checkbox("Full Auto Mode", ref Config.fullAuto)) hasChanged = true;
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip($"All the below options will be treated as true if this is enabled.");
+        ImGui.Indent();
+        using (var _ = ImRaii.Disabled(Config.fullAuto))
         {
-            active ^= true;
-            navmesh.Stop();
+            if (ImGui.Checkbox("Auto Mount", ref Config.autoMount)) hasChanged = true;
+            if (ImGui.Checkbox("Auto Fly", ref Config.autoFly)) hasChanged = true;
+            if (ImGui.Checkbox("Auto Sync", ref Config.autoSync)) hasChanged = true;
+            if (ImGui.Checkbox("Auto Target Mobs", ref Config.autoTargetMobs)) hasChanged = true;
+            if (ImGui.Checkbox("Auto Move To Mobs", ref Config.autoMoveToMobs)) hasChanged = true;
+            if (ImGui.Checkbox("Path To Next Fate", ref Config.pathToNextFate)) hasChanged = true;
         }
-        ImGui.SameLine();
-        if (ImGui.Button("Yo-Kai Mode (Very Experimental)"))
-            yokaiMode ^= true;
-#if DEBUG
-        if (Config.showDebugFeatures)
-        {
-            ImGui.SameLine();
-            if (ImGui.Button("Get Current Minion Zones"))
-            {
-                if (Yokai.Any(x => x.Minion == CurrentCompanion))
-                    Svc.Chat.Print(string.Join(", ", Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Zones));
-                //unsafe { Telepo.Instance()->Teleport(CoordinatesHelper.GetZoneMainAetheryte((uint)z), 0); }
-            }
-            ImGui.SameLine();
-            if (ImGui.Button("print yokai"))
-            {
-                foreach (var x in Yokai)
-                    Svc.Chat.Print($"{Svc.Data.GetExcelSheet<Companion>().GetRow(x.Minion).Singular}: {Svc.Data.GetExcelSheet<Item>().GetRow(x.Medal).Singular}/{Svc.Data.GetExcelSheet<Item>().GetRow(x.Weapon).Singular}/{string.Join(",", x.Zones)}");
-            }
-        }
-#endif
-        ImGui.TextUnformatted($"Status: {(active ? "on" : "off")} (Yo-Kai: {(yokaiMode ? "on" : "off")}");
-        ImGui.TextUnformatted($"Filtered FATEs:");
-        var fates = GetFates();
-        if (fates != null)
-            foreach (var fate in fates)
-                ImGui.TextUnformatted($"{fate.Name} @ {fate.Position} {fate.Progress}% {fate.TimeRemaining}");
-        ImGui.TextUnformatted($"Unfiltered FATEs:");
-        foreach (var fate in Svc.Fates)
-        {
-            ImGui.TextUnformatted($"{fate.Name} @ {fate.Position} {fate.Progress}% {fate.TimeRemaining}/{fate.Duration}");
-            ImGui.SameLine();
-            if (ImGui.Button($"P###{fate.FateId}"))
-            {
-                if (navmesh.IsRunning())
-                    navmesh.Stop();
-                else
-                    navmesh.PathfindAndMoveTo(GetRandomPointInFate(fate.FateId), Svc.Condition[ConditionFlag.InFlight]);
-            }
-            ImGui.SameLine();
-            if (ImGui.Button($"F###{fate.FateId}"))
-                CoordinatesHelper.Place(Svc.ClientState.TerritoryType, fate.Position.X, fate.Position.Z);
-        }
+        ImGui.Unindent();
+        ImGui.Separator();
+        ImGui.TextUnformatted("Fate Options");
+        if (ImGui.DragFloat("Max Duration (s)", ref Config.MaxDuration)) hasChanged = true;
+        if (ImGui.DragFloat("Min Time Remaining (s)", ref Config.MinTimeRemaining)) hasChanged = true;
+        if (ImGui.DragFloat("Max Progress (%)", ref Config.MaxProgress)) hasChanged = true;
     };
 
     public override void Enable()
     {
         base.Enable();
+        Config = LoadConfig<Configs>() ?? new Configs();
+
+        if (Svc.Commands.Commands.ContainsKey(Command))
+            Svc.Log.Error($"Command '{Command}' is already registered.");
+        else
+        {
+            Svc.Commands.AddHandler(Command, new CommandInfo(OnCommand)
+            {
+                HelpMessage = "",
+                ShowInHelp = false
+            });
+
+            registeredCommands.Add(Command);
+        }
+
+        window = new BasicWindow(this);
         navmesh = new();
         random = new();
         Svc.Framework.Update += OnUpdate;
@@ -173,7 +191,77 @@ internal class DateWithDestiny : Feature
     public override void Disable()
     {
         base.Disable();
+        SaveConfig(Config);
+        P.Ws.RemoveWindow(window);
+
+        foreach (var c in registeredCommands)
+        {
+            Svc.Commands.RemoveHandler(c);
+        }
+        registeredCommands.Clear();
         Svc.Framework.Update -= OnUpdate;
+    }
+
+    protected virtual void OnCommand(string _, string args) => window.IsOpen = !window.IsOpen;
+
+    public override void Draw()
+    {
+        if (!Player.Available) return;
+
+        ImGui.TextUnformatted($"Status: {(active ? "on" : "off")} (Yo-Kai: {(yokaiMode ? "on" : "off")})");
+        if (ImGuiComponents.IconButton(!active ? FontAwesomeIcon.Play : FontAwesomeIcon.Stop))
+        {
+            active ^= true;
+            navmesh.Stop();
+        }
+        ImGui.SameLine();
+        if (ImGuiComponents.IconButtonWithText((FontAwesomeIcon)0xf002, "Browse"))
+        {
+            new TerritorySelector(SelectedTerritory, (_, x) =>
+            {
+                SelectedTerritory = x;
+            });
+        }
+
+        foreach (var fate in Svc.Fates.OrderBy(x => Vector3.DistanceSquared(x.Position, Svc.ClientState.LocalPlayer.Position)))
+        {
+            ImGui.Columns(2);
+            if (ImGuiComponents.IconButton($"###Pathfind{fate.FateId}", FontAwesomeIcon.Map))
+            {
+                if (!navmesh.IsRunning())
+                    navmesh.PathfindAndMoveTo(GetRandomPointInFate(fate.FateId), Svc.Condition[ConditionFlag.InFlight]);
+                else
+                    navmesh.Stop();
+            }
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip($"Pathfind to {fate.Position}");
+            ImGui.SameLine();
+            if (ImGuiComponents.IconButton($"###Flag{fate.FateId}", FontAwesomeIcon.Flag))
+            {
+                unsafe { AgentMap.Instance()->SetFlagMapMarker(Svc.ClientState.TerritoryType, Svc.ClientState.MapId, fate.Position); }
+            }
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip($"Set map flag to {fate.Position}");
+            ImGui.SameLine();
+            var nameColour = FateConditions(fate) ? new Vector4(1, 1, 1, 1) : Config.blacklist.Contains(fate.FateId) ? new Vector4(1, 0, 0, 0.5f) : new Vector4(1, 1, 1, 0.5f);
+            ImGuiEx.TextV(nameColour, $"{fate.Name}");
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip($"[{fate.FateId}] {fate.Position} {fate.Progress}%% {fate.TimeRemaining}/{fate.Duration}\nFate {(FateConditions(fate) ? "meets" : "doesn't meet")} conditions and will be pathed to in auto mode.");
+
+            ImGui.NextColumn();
+            Misc.DrawProgressBar(fate.Progress, 100, new Vector4(0.404f, 0.259f, 0.541f, 1));
+            ImGui.SameLine();
+            ImGui.SetCursorPosX(ImGui.GetContentRegionMax().X - Misc.IconUnitWidth() - ImGui.GetStyle().WindowPadding.X);
+            if (ImGuiComponents.IconButton($"###Blacklist{fate.FateId}", FontAwesomeIcon.Ban))
+            {
+                Config.blacklist.Add(fate.FateId);
+                SaveConfig(Config);
+            }
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip($"Add to blacklist. Right click to remove.");
+            if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+            {
+                Config.blacklist.Remove(fate.FateId);
+                SaveConfig(Config);
+            }
+            ImGui.Columns(1);
+        }
     }
 
     private unsafe void OnUpdate(IFramework framework)
@@ -200,11 +288,9 @@ internal class DateWithDestiny : Feature
                 var target = GetFateMob();
                 if (target != null)
                 {
-                    if (Svc.Targets.Target == null)
-                    {
+                    if (Svc.Targets.Target == null && Config.autoTargetMobs)
                         Svc.Targets.Target = target;
-                    }
-                    if (!navmesh.PathfindInProgress())
+                    if (!navmesh.PathfindInProgress() && Config.autoMoveToMobs)
                     {
                         TargetPos = target.Position;
                         navmesh.PathfindAndMoveTo(TargetPos, false);
@@ -218,7 +304,7 @@ internal class DateWithDestiny : Feature
 
         if (cf is null)
         {
-            if (yokaiMode)
+            if (Config.yokaiMode)
             {
                 if (YokaiMinions.Contains(CurrentCompanion))
                 {
@@ -248,20 +334,20 @@ internal class DateWithDestiny : Feature
                 }
             }
 
-            if (!Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.Casting])
+            if (Config.autoMount && !Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.Casting])
             {
                 ExecuteMount();
                 return;
             }
 
-            if (Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight])
+            if (Config.autoFly && Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight])
             {
                 ExecuteJump();
                 return;
             }
 
             var nextFate = GetFates().FirstOrDefault();
-            if (nextFate is not null && Svc.Condition[ConditionFlag.InFlight] && !navmesh.PathfindInProgress())
+            if (nextFate is not null && Svc.Condition[ConditionFlag.InFlight] && !navmesh.PathfindInProgress() && Config.pathToNextFate)
             {
                 Svc.Log.Debug("Finding path to fate");
                 nextFateID = nextFate.FateId;
@@ -276,9 +362,8 @@ internal class DateWithDestiny : Feature
     private void ExecuteDismount() => ExecuteActionSafe(ActionType.GeneralAction, 23);
     private void ExecuteJump() => ExecuteActionSafe(ActionType.GeneralAction, 2);
 
-    private IOrderedEnumerable<Dalamud.Game.ClientState.Fates.Fate> GetFates()
-        => Svc.Fates.Where(f => f.GameData.Rule == 1 && f.State != FateState.Preparation && (f.Duration <= 900 || f.Progress > 0) && f.Progress <= 90 && f.TimeRemaining > 120)
-        .OrderBy(f => Vector3.DistanceSquared(Svc.ClientState.LocalPlayer.Position, f.Position));
+    private IOrderedEnumerable<Dalamud.Game.ClientState.Fates.Fate> GetFates() => Svc.Fates.Where(FateConditions).OrderBy(f => Vector3.DistanceSquared(Svc.ClientState.LocalPlayer.Position, f.Position));
+    private bool FateConditions(Dalamud.Game.ClientState.Fates.Fate f) => f.GameData.Rule == 1 && f.State != FateState.Preparation && f.Duration <= Config.MaxDuration && f.Progress <= Config.MaxProgress && f.TimeRemaining > Config.MinTimeRemaining && !Config.blacklist.Contains(f.FateId);
     private unsafe GameObject GetFateMob()
         => Svc.Objects.OrderBy(x => Vector3.DistanceSquared(x.Position, Svc.ClientState.LocalPlayer.Position))
         .ThenByDescending(x => (x as Character)?.MaxHp ?? 0)
