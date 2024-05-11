@@ -1,14 +1,16 @@
+using Automaton.Utils;
 using ECommons.EzIpcManager;
-using ECommons.Reflection;
 using System;
 using System.Numerics;
 
 namespace Automaton.IPC;
+
+#nullable disable
 internal class NavmeshIPC
 {
     public static string Name = "vnavmesh";
     public NavmeshIPC() => EzIPC.Init(this, Name);
-    public static bool IsEnabled => DalamudReflector.TryGetDalamudPlugin(Name, out _, false, true);
+    public static bool IsEnabled => Misc.HasPlugin(Name);
 
     [EzIPC("Nav.%m")] public readonly Func<bool> IsReady;
     [EzIPC("Nav.%m")] public readonly Func<float> BuildProgress;

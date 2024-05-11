@@ -1,10 +1,10 @@
+using Automaton.Utils;
 using Dalamud.Hooking;
 using ECommons.DalamudServices;
 using ECommons.EzHookManager;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using System;
 using System.Runtime.InteropServices;
-using static Automaton.Helpers.NumberHelper;
 
 namespace Automaton.Helpers;
 

@@ -1,0 +1,113 @@
+using Automaton.FeaturesSetup;
+using Dalamud.Game.Addon.Lifecycle;
+using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
+using Dalamud.Interface;
+using Dalamud.Interface.Components;
+using ECommons;
+using ECommons.Automation;
+using ECommons.DalamudServices;
+using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.System.Framework;
+using FFXIVClientStructs.FFXIV.Component.GUI;
+using ImGuiNET;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.InteropServices;
+
+namespace Automaton.Features.Unconverted;
+internal class AutoQueue : Feature
+{
+    public override string Name => "Auto Queue";
+    public override string Description => "Auto queue into a pre-checked duty with light auto leave functionality.";
+    public override FeatureType FeatureType => FeatureType.Actions;
+
+    private delegate void AbandonDuty(bool a1);
+    private AbandonDuty _abandonDuty;
+    private readonly List<string> peoples = [];
+    public Configs Config { get; private set; }
+    public class Configs : FeatureConfig
+    {
+        public List<string> peopleToCheckFor = [];
+        public bool leaveIfAllArentPresent;
+        public bool leaveIfNoneArePresent;
+    }
+
+    protected override DrawConfigDelegate DrawConfigTree => (ref bool hasChanged) =>
+    {
+        try
+        {
+            var x = string.Empty;
+            if (ImGui.InputText("Player Names", ref x, 32, ImGuiInputTextFlags.EnterReturnsTrue))
+            {
+                peoples.Add(x);
+                hasChanged = true;
+            }
+        }
+        catch { }
+        if (ImGui.Checkbox("Leave if all members are not present", ref Config.leaveIfAllArentPresent))
+        {
+            Config.leaveIfNoneArePresent = false;
+            hasChanged = true;
+        }
+        if (ImGui.Checkbox("Leave if none of the members are present", ref Config.leaveIfNoneArePresent))
+        {
+            Config.leaveIfAllArentPresent = false;
+            hasChanged = true;
+        }
+        try
+        {
+            foreach (var person in peoples)
+            {
+                ImGui.TextUnformatted(person);
+                ImGui.SameLine();
+                if (ImGuiComponents.IconButton($"###{person}{peoples.IndexOf(person)}", FontAwesomeIcon.Trash))
+                {
+                    peoples.Remove(person);
+                    SaveConfig(Config);
+                }
+            }
+        }
+        catch (Exception e) { e.Log(); }
+    };
+
+    public override void Enable()
+    {
+        base.Enable();
+        Config = LoadConfig<Configs>() ?? new Configs();
+        Svc.ClientState.TerritoryChanged += OnTerritoryChanged;
+        Svc.DutyState.DutyStarted += OnDutyStart;
+        Svc.AddonLifecycle.RegisterListener(AddonEvent.PostSetup, "ContentsFinder", AddonSetup);
+        _abandonDuty = Marshal.GetDelegateForFunctionPointer<AbandonDuty>(Svc.SigScanner.ScanText("E8 ?? ?? ?? ?? 48 8B 43 28 B1 01"));
+    }
+
+    public override void Disable()
+    {
+        base.Disable();
+        SaveConfig(Config);
+        Svc.ClientState.TerritoryChanged -= OnTerritoryChanged;
+        Svc.DutyState.DutyStarted -= OnDutyStart;
+        Svc.AddonLifecycle.UnregisterListener(AddonSetup);
+        _abandonDuty = null;
+    }
+
+    private unsafe void AddonSetup(AddonEvent type, AddonArgs args)
+    {
+        Callback.Fire((AtkUnitBase*)args.Addon, true, 12, 0);
+    }
+
+    private unsafe void OnTerritoryChanged(ushort obj)
+    {
+        if (GameMain.Instance()->CurrentContentFinderConditionId != 0) return;
+        if (RouletteController.Instance()->GetPenaltyRemainingInMinutes(0) > 0) return;
+        TaskManager.Enqueue(() => !GenericHelpers.IsOccupied());
+        TaskManager.Enqueue(() => Framework.Instance()->GetUiModule()->ExecuteMainCommand(33));
+    }
+
+    private void OnDutyStart(object sender, ushort e)
+    {
+        if (Config.leaveIfAllArentPresent && peoples.Count > 0 && !new HashSet<string>(peoples).IsSubsetOf(Svc.Party.Select(p => p.Name.TextValue)))
+            _abandonDuty(false);
+    }
+}

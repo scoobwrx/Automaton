@@ -1,4 +1,6 @@
-using Automaton.Helpers;
+using Automaton.FeaturesSetup.Attributes;
+using Automaton.Configuration;
+using Automaton.Utils;
 using ClickLib.Clicks;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
@@ -8,7 +10,9 @@ using Dalamud.Memory;
 using Dalamud.Plugin;
 using ECommons;
 using ECommons.Automation.LegacyTaskManager;
+using ECommons.Configuration;
 using ECommons.DalamudServices;
+using ECommons.Reflection;
 using ECommons.Throttlers;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
@@ -18,6 +22,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using ImGuiNET;
 using Newtonsoft.Json;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -27,10 +32,12 @@ namespace Automaton.FeaturesSetup;
 
 public abstract class BaseFeature
 {
-    protected Automaton P;
-    protected DalamudPluginInterface Pi;
-    protected Configuration config;
-    protected TaskManager TaskManager;
+    protected Automaton P = null!;
+    protected DalamudPluginInterface Pi = null!;
+    protected Config config = null!;
+    protected TaskManager TaskManager = null!;
+    protected IEzConfig? Configuration;
+
     public FeatureProvider Provider { get; private set; } = null!;
 
     public virtual bool Enabled { get; protected set; }
@@ -65,13 +72,15 @@ public abstract class BaseFeature
 
     public virtual bool Outdated { get; protected set; }
 
+    public virtual IncompatibilityWarningAttribute[] IncompatibilityWarnings { get; init; }
+
     public virtual FeatureType FeatureType { get; }
 
-    public virtual bool isDebug { get; }
+    public virtual bool IsDebug { get; }
 
-    public virtual List<string> RequiredPlugins { get; }
+    public virtual List<string> RequiredPlugins { get; protected set; }
 
-    public void InterfaceSetup(Automaton plugin, DalamudPluginInterface pluginInterface, Configuration config, FeatureProvider fp)
+    public void InterfaceSetup(Automaton plugin, DalamudPluginInterface pluginInterface, Config config, FeatureProvider fp)
     {
         P = plugin;
         Pi = pluginInterface;
@@ -107,13 +116,25 @@ public abstract class BaseFeature
 
     public virtual void Dispose() => Ready = false;
 
+    protected T GetConfig<T>() where T : IEzConfig, new()
+    {
+        Configuration ??= EzConfig.LoadConfiguration<T>($"{Name}.json", false);
+        return (T)Configuration;
+    }
+
+    protected void SaveConfig()
+    {
+        if (Configuration != null)
+            EzConfig.SaveConfiguration(Configuration, $"{Name}.json", true, false);
+    }
+
     protected T LoadConfig<T>() where T : FeatureConfig => LoadConfig<T>(Key);
 
     protected T LoadConfig<T>(string key) where T : FeatureConfig
     {
         try
         {
-            var configDirectory = pi.GetPluginConfigDirectory();
+            var configDirectory = Svc.PluginInterface.GetPluginConfigDirectory();
             var configFile = Path.Combine(configDirectory, key + ".json");
             if (!File.Exists(configFile)) return default;
             var jsonString = File.ReadAllText(configFile);
@@ -132,7 +153,7 @@ public abstract class BaseFeature
     {
         try
         {
-            var configDirectory = pi.GetPluginConfigDirectory();
+            var configDirectory = Svc.PluginInterface.GetPluginConfigDirectory();
             var configFile = Path.Combine(configDirectory, key + ".json");
             var jsonString = JsonConvert.SerializeObject(config, Formatting.Indented);
 
@@ -464,9 +485,9 @@ public abstract class BaseFeature
         return null;
     }
 
-    internal static bool TrySelectSpecificEntry(string text, Func<bool> Throttler = null) => TrySelectSpecificEntry(new string[] { text }, Throttler);
+    internal static bool TrySelectSpecificEntry(string text, Func<bool>? Throttler = null) => TrySelectSpecificEntry(new string[] { text }, Throttler);
 
-    internal static unsafe bool TrySelectSpecificEntry(IEnumerable<string> text, Func<bool> Throttler = null)
+    internal static unsafe bool TrySelectSpecificEntry(IEnumerable<string> text, Func<bool>? Throttler = null)
     {
         if (GenericHelpers.TryGetAddonByName<AddonSelectString>("SelectString", out var addon) && GenericHelpers.IsAddonReady(&addon->AtkUnitBase))
         {
@@ -508,59 +529,54 @@ public abstract class BaseFeature
     internal static void RethrottleGeneric(int num) => EzThrottler.Throttle($"AutomatonGenericThrottle", num, true);
     internal static void RethrottleGeneric() => EzThrottler.Throttle($"AutomatonGenericThrottle", 200, true);
 
-    internal static unsafe bool IsLoading() => (GenericHelpers.TryGetAddonByName<AtkUnitBase>("FadeBack", out var fb) && fb->IsVisible) || (GenericHelpers.TryGetAddonByName<AtkUnitBase>("FadeMiddle", out var fm) && fm->IsVisible);
+    internal static unsafe bool IsLoading() => GenericHelpers.TryGetAddonByName<AtkUnitBase>("FadeBack", out var fb) && fb->IsVisible || GenericHelpers.TryGetAddonByName<AtkUnitBase>("FadeMiddle", out var fm) && fm->IsVisible;
 
     public bool IsInDuty() => Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BoundByDuty] ||
                             Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BoundByDuty56] ||
                             Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BoundByDuty95] ||
-                            Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BoundToDuty97];
+                            Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.InDutyQueue];
 
-    //public static bool HasRepo(string repository)
-    //{
-    //    var conf = DalamudReflector.GetService("Dalamud.Configuration.Internal.DalamudConfiguration");
-    //    var repolist = (IEnumerable)conf.GetFoP("ThirdRepoList");
-    //    if (repolist != null)
-    //        foreach (var r in repolist)
-    //            if ((string)r.GetFoP("Url") == repository)
-    //                return true;
-    //    return false;
-    //}
+    public static bool HasRepo(string repository)
+    {
+        var conf = DalamudReflector.GetService("Dalamud.Configuration.Internal.DalamudConfiguration");
+        var repolist = (IEnumerable)conf.GetFoP("ThirdRepoList");
+        if (repolist != null)
+            foreach (var r in repolist)
+                if ((string)r.GetFoP("Url") == repository)
+                    return true;
+        return false;
+    }
 
-    //public void AddRepo(string repository, bool enabled)
-    //{
-    //    var conf = DalamudReflector.GetService("Dalamud.Configuration.Internal.DalamudConfiguration");
-    //    var repolist = (IEnumerable)conf.GetFoP("ThirdRepoList");
-    //    if (repolist != null)
-    //        foreach (var r in repolist)
-    //            if ((string)r.GetFoP("Url") == repository)
-    //                return;
-    //    var instance = Activator.CreateInstance(Svc.PluginInterface.GetType().Assembly.GetType("Dalamud.Configuration.ThirdPartyRepoSettings"));
-    //    instance.SetFoP("Url", repository);
-    //    instance.SetFoP("IsEnabled", enabled);
-    //    conf.GetFoP<IList>("ThirdRepoList").Add(instance);
-    //    if (repolist != null)
-    //    {
-    //        foreach (var repo in repolist)
-    //        {
-    //            var name = (string)repo.GetFoP("Name");
-    //            var url = (string)repo.GetFoP("Url");
-    //            var isEnabled = (bool)repo.GetFoP("IsEnabled");
-    //            repolist.Add(new ThirdPartyRepoSettings(url, isEnabled, name));
-    //        }
-    //    }
-    //    if (repolist.Any(r => r.URL == repository))
-    //    {
-    //        repolist.RemoveAll(r => r.URL == repository);
-    //        Svc.Log.Info($"Removed repo {repository} from your dalamud settings.");
-    //    }
-    //    else
-    //    {
-    //        repolist.Add(new ThirdPartyRepoSettings(repository, false, string.Empty));
-    //        Svc.Log.Info($"Added repo {repository} to your dalamud settings.");
+    public static void AddRepo(string repository, bool enabled)
+    {
+        var conf = DalamudReflector.GetService("Dalamud.Configuration.Internal.DalamudConfiguration");
+        var repolist = (IEnumerable)conf.GetFoP("ThirdRepoList");
+        if (repolist != null)
+            foreach (var r in repolist)
+                if ((string)r.GetFoP("Url") == repository)
+                    return;
+        var instance = Activator.CreateInstance(Svc.PluginInterface.GetType().Assembly.GetType("Dalamud.Configuration.ThirdPartyRepoSettings")!);
+        instance.SetFoP("Url", repository);
+        instance.SetFoP("IsEnabled", enabled);
+        conf.GetFoP<IList>("ThirdRepoList").Add(instance);
+    }
 
+    public static void RemoveRepo(string repository)
+    {
+        var conf = DalamudReflector.GetService("Dalamud.Configuration.Internal.DalamudConfiguration");
+        var repolist = (IEnumerable)conf.GetFoP("ThirdRepoList");
+        if (repolist != null)
+            foreach (var r in repolist)
+                if ((string)r.GetFoP("Url") == repository)
+                    conf.GetFoP<IList>("ThirdRepoList").Remove(r);
+    }
 
-    //    }
-    //    //foreach (var repo in _repos)
-    //    //    Svc.Log.Info($"{repo.Name}; {repo.Enabled}: {repo.URL}");
-    //}
+    public static void ListRepos()
+    {
+        var conf = DalamudReflector.GetService("Dalamud.Configuration.Internal.DalamudConfiguration");
+        var repolist = (IEnumerable)conf.GetFoP("ThirdRepoList");
+        if (repolist != null)
+            foreach (var r in repolist)
+                Svc.Log.Info($"{r.GetFoP("Name")} {r.GetFoP("Url")} {r.GetFoP("IsEnabled")}");
+    }
 }

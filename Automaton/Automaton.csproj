@@ -21,7 +21,7 @@
         <PackageId>$(PluginName)</PackageId>
         <Product>$(PluginName)</Product>
         <RootNamespace>$(PluginName)</RootNamespace>
-        <Nullable>disable</Nullable>
+        <Nullable>enable</Nullable>
         <NoWarn>CS1591</NoWarn>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <EnableWindowsTargeting>true</EnableWindowsTargeting>
@@ -46,11 +46,17 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="AngleSharp" Version="1.0.5" />
+      <None Remove="Assets\rat.png" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <EmbeddedResource Include="Assets\rat.png" />
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="DalamudPackager" Version="2.1.12" />
         <PackageReference Include="IronPython" Version="3.4.1" />
-        <PackageReference Include="NAudio" Version="2.1.0" />
-        <PackageReference Include="SocketIOClient" Version="3.0.8" />
+        <PackageReference Include="YamlDotNet" Version="15.1.2" />
         <Reference Include="Newtonsoft.Json">
             <HintPath>$(DalamudLibPath)Newtonsoft.Json.dll</HintPath>
             <Private>False</Private>

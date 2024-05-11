@@ -20,10 +20,10 @@ public class FeatureProvider(Assembly assembly) : IDisposable
             try
             {
                 var feature = (Feature)Activator.CreateInstance(t);
-                feature.InterfaceSetup(P, pi, Config, this);
+                feature.InterfaceSetup(P, Svc.PluginInterface, C, this);
                 feature.Setup();
-                if ((feature.Ready && Config.EnabledFeatures.Contains(t.Name)) || feature.FeatureType == FeatureType.Commands)
-                    if (feature.FeatureType == FeatureType.Disabled || (feature.isDebug && !Config.showDebugFeatures))
+                if (feature.Ready && C.EnabledTweaks.Contains(t.Name) || feature.FeatureType == FeatureType.Commands)
+                    if (feature.FeatureType == FeatureType.Disabled || feature.IsDebug && !C.ShowDebug)
                         feature.Disable();
                     else
                         feature.Enable();

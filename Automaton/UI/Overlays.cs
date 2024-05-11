@@ -1,5 +1,6 @@
 using Automaton.FeaturesSetup;
 using Dalamud.Interface.Windowing;
+using ECommons.SimpleGui;
 using ImGuiNET;
 
 namespace Automaton.UI;
@@ -18,7 +19,7 @@ internal class Overlays : Window
         {
             MaximumSize = new System.Numerics.Vector2(0, 0),
         };
-        P.Ws.AddWindow(this);
+        EzConfigGui.WindowSystem.AddWindow(this);
     }
 
     public override void Draw() => Feature.Draw();

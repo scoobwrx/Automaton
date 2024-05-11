@@ -1,6 +1,7 @@
 using Automaton.FeaturesSetup;
 using Dalamud.Interface.Windowing;
 using ECommons.DalamudServices;
+using ECommons.SimpleGui;
 using System.Numerics;
 
 namespace Automaton.UI;
@@ -14,7 +15,7 @@ internal class BasicWindow : Window
         {
             MaximumSize = new Vector2(float.MaxValue, float.MaxValue)
         };
-        P.Ws.AddWindow(this);
+        EzConfigGui.WindowSystem.AddWindow(this);
     }
 
     public static void Dispose()

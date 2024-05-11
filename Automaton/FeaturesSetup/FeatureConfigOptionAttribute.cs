@@ -52,7 +52,7 @@ public class FeatureConfigOptionAttribute : Attribute
 
     public FeatureConfigOptionAttribute(string name) => Name = name;
 
-    public FeatureConfigOptionAttribute(string name, string editorType, int priority = 0, string localizeKey = null)
+    public FeatureConfigOptionAttribute(string name, string editorType, int priority = 0, string? localizeKey = null)
     {
         Name = name;
         Priority = priority;

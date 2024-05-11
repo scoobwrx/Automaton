@@ -1,29 +1,20 @@
-using Dalamud.Plugin.Ipc;
-using ECommons.DalamudServices;
+using Automaton.Utils;
+using ECommons.EzIpcManager;
+using System;
 
 namespace Automaton.IPC;
 
-internal static class PandorasBoxIPC
+#nullable disable
+internal class PandorasBoxIPC
 {
-    internal static string Name = "PandorasBox";
-    internal static ICallGateSubscriber<string, bool?> GetFeatureEnabled;
-    internal static ICallGateSubscriber<string, bool, object> SetFeatureEnabled;
-    internal static ICallGateSubscriber<string, string, bool?> GetConfigEnabled;
-    internal static ICallGateSubscriber<string, string, bool, object> SetConfigEnabled;
+    public static string Name = "PandorasBox";
+    public PandorasBoxIPC() => EzIPC.Init(this, Name);
+    public static bool IsEnabled => Misc.HasPlugin(Name);
 
-    internal static void Init()
-    {
-        GetFeatureEnabled = Svc.PluginInterface.GetIpcSubscriber<string, bool?>($"PandorasBox.GetFeatureEnabled");
-        SetFeatureEnabled = Svc.PluginInterface.GetIpcSubscriber<string, bool, object>($"PandorasBox.SetFeatureEnabled");
-        GetConfigEnabled = Svc.PluginInterface.GetIpcSubscriber<string, string, bool?>($"PandorasBox.GetConfigEnabled");
-        SetConfigEnabled = Svc.PluginInterface.GetIpcSubscriber<string, string, bool, object>($"PandorasBox.SetConfigEnabled");
-    }
+    [EzIPC] public readonly Func<string, bool?> GetFeatureEnabled;
+    [EzIPC] public readonly Func<string, string, bool?> GetConfigEnabled;
 
-    internal static void Dispose()
-    {
-        GetFeatureEnabled = null;
-        GetConfigEnabled = null;
-        SetFeatureEnabled = null;
-        SetConfigEnabled = null;
-    }
+    [EzIPC] public readonly Action<string, bool, object> SetFeatureEnabled;
+    [EzIPC] public readonly Action<string, string, bool, object> SetConfigEnabled;
+    [EzIPC] public readonly Action<string, int, object> PauseFeature;
 }

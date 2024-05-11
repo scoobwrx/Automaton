@@ -1,0 +1,142 @@
+using Dalamud.Interface;
+using Dalamud.Interface.Internal;
+using Dalamud.Interface.Utility.Raii;
+using ECommons;
+using ECommons.ImGuiMethods;
+using ImGuiNET;
+using System;
+using System.Numerics;
+using System.Threading.Tasks;
+
+namespace Automaton.Utils;
+public static class ImGuiX
+{
+    public static void TextUnformattedDisabled(string text)
+    {
+        using (ImRaii.Disabled())
+            ImGui.TextUnformatted(text);
+    }
+
+    public static void TextUnformattedColored(uint col, string text)
+    {
+        using (ImRaii.PushColor(ImGuiCol.Text, col))
+            ImGui.TextUnformatted(text);
+    }
+
+    public static void PushCursor(Vector2 vec) => ImGui.SetCursorPos(ImGui.GetCursorPos() + vec);
+    public static void PushCursor(float x, float y) => PushCursor(new Vector2(x, y));
+    public static void PushCursorX(float x) => ImGui.SetCursorPosX(ImGui.GetCursorPosX() + x);
+    public static void PushCursorY(float y) => ImGui.SetCursorPosY(ImGui.GetCursorPosY() + y);
+
+    public static void DrawPaddedSeparator()
+    {
+        var style = ImGui.GetStyle();
+
+        PushCursorY(style.ItemSpacing.Y);
+        ImGui.Separator();
+        PushCursorY(style.ItemSpacing.Y - 1);
+    }
+
+    public static void DrawLink(string label, string title, string url)
+    {
+        ImGui.TextUnformatted(label);
+
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+
+            using var tooltip = ImRaii.Tooltip();
+            if (tooltip.Success)
+            {
+                TextUnformattedColored(Colors.White, title);
+
+                var pos = ImGui.GetCursorPos();
+                ImGui.GetWindowDrawList().AddText(
+                    UiBuilder.IconFont, 12,
+                    ImGui.GetWindowPos() + pos + new Vector2(2),
+                    Colors.Grey,
+                    FontAwesomeIcon.ExternalLinkAlt.ToIconString()
+                );
+                ImGui.SetCursorPos(pos + new Vector2(20, 0));
+                TextUnformattedColored(Colors.Grey, url);
+            }
+        }
+
+        if (ImGui.IsItemClicked())
+        {
+            Task.Run(() => Dalamud.Utility.Util.OpenLink(url));
+        }
+    }
+
+    public static void DrawSection(string Label, bool PushDown = true, bool RespectUiTheme = false, uint UIColor = 1)
+    {
+        var style = ImGui.GetStyle();
+
+        // push down a bit
+        if (PushDown)
+            PushCursorY(style.ItemSpacing.Y * 2);
+
+        var color = Colors.Gold;
+        if (RespectUiTheme && Colors.IsLightTheme)
+            color = HaselColor.FromUiForeground(UIColor);
+
+        TextUnformattedColored(color, Label);
+
+        // pull up the separator
+        PushCursorY(-style.ItemSpacing.Y + 3);
+        ImGui.Separator();
+        PushCursorY(style.ItemSpacing.Y * 2 - 1);
+    }
+
+    public static ImRaii.Indent ConfigIndent(bool enabled = true) => ImRaii.PushIndent(ImGui.GetFrameHeight() + ImGui.GetStyle().ItemSpacing.X / 2f, true, enabled);
+
+    public static void Checkbox(string name, ref bool v)
+    {
+        if (ImGui.Checkbox(name, ref v))
+            SaveConfig();
+    }
+
+    public static void Icon(FontAwesomeIcon icon, uint? col = null)
+    {
+        using var color = col != null ? ImRaii.PushColor(ImGuiCol.Text, (uint)col) : null;
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            ImGui.Text(icon.ToIconString());
+    }
+
+    public static void Icon(uint iconID, int size) => Icon(Misc.GetIcon(iconID), size.Vec2());
+    public static void Icon(uint iconID, Vector2 size) => Icon(Misc.GetIcon(iconID), size);
+    public static void Icon(IDalamudTextureWrap? icon, Vector2 size)
+    {
+        if (icon != null)
+            ImGui.Image(icon.ImGuiHandle, size);
+        else
+            ImGui.Dummy(size);
+    }
+
+    public static float IconUnitHeight() => ImGuiHelpers.GetButtonSize(FontAwesomeIcon.Trash.ToIconString()).Y;
+    public static float IconUnitWidth() => ImGuiHelpers.GetButtonSize(FontAwesomeIcon.Trash.ToIconString()).X;
+
+    // https://github.com/KazWolfe/CollectorsAnxiety/blob/bf48a4b0681e5f70fb67e3b1cb22b4565ecfcc02/CollectorsAnxiety/Util/ImGuiUtil.cs#L10
+    public static void DrawProgressBar(int progress, int total, Vector4 colour)
+    {
+        try
+        {
+            using (ImRaii.Group())
+            {
+                var cursor = ImGui.GetCursorPos();
+                var sizeVec = new Vector2(ImGui.GetContentRegionAvail().X - IconUnitWidth() - ImGui.GetStyle().WindowPadding.X * 2, IconUnitHeight());
+
+                var percentage = progress / (float)total;
+                var label = string.Format("{0:P} Complete ({1} / {2})", percentage, progress, total);
+                var labelSize = ImGui.CalcTextSize(label);
+
+                using var _ = ImRaii.PushColor(ImGuiCol.PlotHistogram, colour);
+                ImGui.ProgressBar(percentage, sizeVec, "");
+
+                ImGui.SetCursorPos(new Vector2(cursor.X + sizeVec.X - labelSize.X - 4, cursor.Y));
+                ImGuiEx.TextV(label);
+            }
+        }
+        catch (Exception e) { e.Log(); }
+    }
+}

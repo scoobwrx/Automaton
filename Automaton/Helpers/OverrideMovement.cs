@@ -1,10 +1,10 @@
+using Automaton.Utils;
 using Dalamud.Game.Config;
 using ECommons.DalamudServices;
 using ECommons.EzHookManager;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using static Automaton.Helpers.NumberHelper;
 
 namespace Automaton.Helpers;
 
@@ -47,16 +47,16 @@ public unsafe class OverrideMovement
     private bool _legacyMode;
 
     private delegate bool RMIWalkIsInputEnabled(void* self);
-    private RMIWalkIsInputEnabled _rmiWalkIsInputEnabled1;
-    private RMIWalkIsInputEnabled _rmiWalkIsInputEnabled2;
+    private readonly RMIWalkIsInputEnabled _rmiWalkIsInputEnabled1;
+    private readonly RMIWalkIsInputEnabled _rmiWalkIsInputEnabled2;
 
     private delegate void RMIWalkDelegate(void* self, float* sumLeft, float* sumForward, float* sumTurnLeft, byte* haveBackwardOrStrafe, byte* a6, byte bAdditiveUnk);
     [EzHook("E8 ?? ?? ?? ?? 80 7B 3E 00 48 8D 3D", false)]
-    private EzHook<RMIWalkDelegate> RMIWalkHook = null!;
+    private readonly EzHook<RMIWalkDelegate> RMIWalkHook = null!;
 
     private delegate void RMIFlyDelegate(void* self, PlayerMoveControllerFlyInput* result);
     [EzHook("E8 ?? ?? ?? ?? 0F B6 0D ?? ?? ?? ?? B8", false)]
-    private EzHook<RMIFlyDelegate> RMIFlyHook = null!;
+    private readonly EzHook<RMIFlyDelegate> RMIFlyHook = null!;
 
     public OverrideMovement()
     {

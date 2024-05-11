@@ -28,6 +28,6 @@ public class NpcLocation
 
         val = (val + offset) * c;
 
-        return (41.0f / c * ((val + 1024.0f) / 2048.0f)) + 1;
+        return 41.0f / c * ((val + 1024.0f) / 2048.0f) + 1;
     }
 }

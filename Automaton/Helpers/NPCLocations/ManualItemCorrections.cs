@@ -3,7 +3,7 @@ using Lumina.Excel.GeneratedSheets;
 using System.Collections.Generic;
 
 namespace Automaton.Helpers.NPCLocations;
-
+#nullable disable
 internal class ManualItemCorrections
 {
     internal static void ApplyCorrections(Dictionary<uint, NpcLocation> _npcLocations)
