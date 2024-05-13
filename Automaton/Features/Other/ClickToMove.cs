@@ -44,6 +44,7 @@ public unsafe class ClickToMove : Feature
     private Vector3 destination = Vector3.Zero;
     private void MoveTo(IFramework framework)
     {
+        if (Svc.ClientState.LocalPlayer == null) return;
         if (Vector3.DistanceSquared(Svc.ClientState.LocalPlayer.Position, destination) < 0.0025) movement.Enabled = false;
 
         if (GenericHelpers.IsKeyPressed(ECommons.Interop.LimitedKeys.LeftMouseButton) && Misc.IsClickingInGameWorld())
