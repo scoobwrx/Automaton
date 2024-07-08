@@ -1,6 +1,3 @@
-using ECommons.DalamudServices;
-using System.Collections.Generic;
-
 namespace Automaton.IPC;
 
 internal static class TextAdvanceManager

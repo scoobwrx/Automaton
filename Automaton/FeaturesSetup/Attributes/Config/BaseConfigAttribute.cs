@@ -1,24 +1,22 @@
-using Automaton.Utils;
 using Dalamud.Interface;
-using ECommons.Configuration;
 using ECommons.ImGuiMethods;
 using ImGuiNET;
-using System;
-using System.Linq;
 using System.Reflection;
 
 namespace Automaton.FeaturesSetup.Attributes;
 
 public abstract class BaseConfigAttribute : Attribute
 {
+    public string Label = string.Empty;
+    public string Description = string.Empty;
     public string DependsOn = string.Empty;
 
     public abstract void Draw(Tweak tweak, object config, FieldInfo fieldInfo);
 
     protected void OnChangeInternal(Tweak tweak, FieldInfo fieldInfo)
     {
-        C.SaveConfiguration($"ez{tweak.Name}.json");
-        tweak.CachedType.GetMethod(nameof(Tweak.OnConfigChangeInternal), BindingFlags.Instance | BindingFlags.NonPublic)?.Invoke(tweak, new[] { fieldInfo.Name });
+        //C.SaveConfiguration($"ez{tweak.Name}.json");
+        tweak.CachedType.GetMethod(nameof(Tweak.OnConfigChangeInternal), BindingFlags.Instance | BindingFlags.NonPublic)?.Invoke(tweak, [fieldInfo.Name]);
     }
 
     protected static void DrawConfigInfos(FieldInfo fieldInfo)
@@ -33,7 +31,7 @@ public abstract class BaseConfigAttribute : Attribute
             ImGuiX.Icon(attribute.Icon, attribute.Color);
             if (ImGui.IsItemHovered())
             {
-                ImGui.SetTooltip(attribute.Translationkey);
+                ImGui.SetTooltip(attribute.Description);
             }
         }
     }

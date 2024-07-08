@@ -1,9 +1,7 @@
-﻿using Automaton.FeaturesSetup;
-using Automaton.FeaturesSetup.Attributes;
-using Automaton.Utils;
+﻿using Dalamud.Interface;
+using Dalamud.Interface.Components;
 using ECommons;
-using ECommons.Configuration;
-using ECommons.DalamudServices;
+using ECommons.ImGuiMethods;
 using ImGuiNET;
 using System.Runtime.InteropServices;
 
@@ -11,10 +9,16 @@ namespace Automaton.Features;
 
 public class EnhancedDutyStartEndConfiguration
 {
-    public int TimeToWait;
+    [NetworkWarning]
     public string StartMsg = string.Empty;
+    public HashSet<string> Players = [];
+    public bool CheckForAll;
+    public bool CheckForAny;
+
+    [NetworkWarning]
     public string EndMsg = string.Empty;
-    public bool AutoLeave;
+    public bool AutoLeaveOnEnd;
+    public int TimeToWait;
 }
 
 [Tweak]
@@ -30,7 +34,7 @@ public class EnhancedDutyStartEnd : Tweak<EnhancedDutyStartEndConfiguration>
     {
         Svc.DutyState.DutyStarted += OnDutyStart;
         Svc.DutyState.DutyCompleted += OnDutyComplete;
-        _abandonDuty = Marshal.GetDelegateForFunctionPointer<AbandonDuty>(Svc.SigScanner.ScanText("E8 ?? ?? ?? ?? 48 8B 43 28 B1 01"));
+        _abandonDuty = Marshal.GetDelegateForFunctionPointer<AbandonDuty>(Svc.SigScanner.ScanText("E8 ?? ?? ?? ?? 48 8B 43 28 41 B2 01"));
     }
 
     public override void Disable()
@@ -39,20 +43,44 @@ public class EnhancedDutyStartEnd : Tweak<EnhancedDutyStartEndConfiguration>
         Svc.DutyState.DutyCompleted -= OnDutyComplete;
     }
 
+    private string _name = string.Empty;
     public override void DrawConfig()
     {
         ImGuiX.DrawSection("Duty Start Options");
 
         ImGui.InputText($"##{nameof(Config.StartMsg)}", ref Config.StartMsg, 50);
-        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey, "Sends a chat message when the duty starts.");
+        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey, "Sends a party chat message when the duty starts.");
+
+        if (ImGui.InputText($"##AddPlayers", ref _name, 50, ImGuiInputTextFlags.EnterReturnsTrue))
+            Config.Players.Add(_name);
+        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey, "Leave if specific players are not present.");
+
+        if (Config.Players.Count > 0)
+        {
+            ImGuiX.DrawSection("Players to Check For");
+            if (ImGui.Checkbox("Check for All", ref Config.CheckForAll))
+                if (Config.CheckForAll)
+                    Config.CheckForAny = !Config.CheckForAll;
+            ImGui.SameLine();
+            if (ImGui.Checkbox("Check for Any", ref Config.CheckForAny))
+                if (Config.CheckForAny)
+                    Config.CheckForAll = !Config.CheckForAny;
+        }
+        foreach (var person in Config.Players)
+        {
+            ImGuiEx.TextV(person);
+            ImGui.SameLine();
+            if (ImGuiComponents.IconButton(person, FontAwesomeIcon.Trash))
+                Config.Players.Remove(person);
+        }
 
         ImGuiX.DrawSection("Duty End Options");
 
         ImGui.InputText($"##{nameof(Config.EndMsg)}", ref Config.EndMsg, 50);
-        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey, "Sends a chat message when the duty ends.");
+        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey, "Sends a party chat message when the duty ends.");
 
-        ImGui.Checkbox("Auto Leave", ref Config.AutoLeave);
-        if (Config.AutoLeave)
+        ImGui.Checkbox("Auto Leave##End", ref Config.AutoLeaveOnEnd);
+        if (Config.AutoLeaveOnEnd)
             ImGui.SliderInt("Leave after (s)", ref Config.TimeToWait, 0, 100);
     }
 
@@ -60,6 +88,11 @@ public class EnhancedDutyStartEnd : Tweak<EnhancedDutyStartEndConfiguration>
     {
         if (!Config.StartMsg.IsNullOrEmpty())
             ECommons.Automation.Chat.Instance.SendMessage($"/p {Config.StartMsg}");
+
+        var allPlayersInParty = Config.Players.Count > 0 && Config.Players.IsSubsetOf(Svc.Party.Select(p => p.Name.TextValue));
+        var noPlayersInParty = Config.Players.Count > 0 && !Config.Players.Any(p => Svc.Party.Any(pm => pm.Name.TextValue == p));
+        if (Config.CheckForAll && !allPlayersInParty || Config.CheckForAny && noPlayersInParty)
+            _abandonDuty(false);
     }
 
     private void OnDutyComplete(object? sender, ushort e)
@@ -67,7 +100,7 @@ public class EnhancedDutyStartEnd : Tweak<EnhancedDutyStartEndConfiguration>
         if (!Config.EndMsg.IsNullOrEmpty())
             ECommons.Automation.Chat.Instance.SendMessage($"/p {Config.EndMsg}");
 
-        if (Config.AutoLeave)
+        if (Config.AutoLeaveOnEnd)
         {
             TaskManager.EnqueueDelay(Config.TimeToWait.Ms());
             TaskManager.Enqueue(() => _abandonDuty(false));

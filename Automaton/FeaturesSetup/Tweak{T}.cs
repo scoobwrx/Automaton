@@ -1,15 +1,7 @@
 using Automaton.Configuration;
-using Automaton.FeaturesSetup.Attributes;
-using Automaton.Utils;
 using Dalamud.Game.Command;
 using Dalamud.Interface.Utility.Raii;
-using ECommons.Configuration;
-using ECommons.DalamudServices;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using static Dalamud.Game.Command.CommandInfo;
 
 namespace Automaton.FeaturesSetup;
 
@@ -74,7 +66,8 @@ public abstract class Tweak<T> : Tweak
 
             if (enabled)
             {
-                EnableCommand(attr.Command, attr.HelpMessage, methodInfo);
+                foreach (var c in attr.Commands)
+                    EnableCommand(c, attr.HelpMessage, methodInfo);
             }
         }
     }
@@ -94,7 +87,8 @@ public abstract class Tweak<T> : Tweak
 
             if (enabled)
             {
-                DisableCommand(attr.Command);
+                foreach (var c in attr.Commands)
+                    DisableCommand(c);
             }
         }
     }
@@ -117,11 +111,13 @@ public abstract class Tweak<T> : Tweak
 
             if (enabled)
             {
-                EnableCommand(attr.Command, attr.HelpMessage, methodInfo);
+                foreach (var c in attr.Commands)
+                    EnableCommand(c, attr.HelpMessage, methodInfo);
             }
             else
             {
-                DisableCommand(attr.Command);
+                foreach (var c in attr.Commands)
+                    DisableCommand(c);
             }
         }
 
@@ -137,7 +133,7 @@ public abstract class Tweak<T> : Tweak
 
     private void EnableCommand(string command, string helpMessage, MethodInfo methodInfo)
     {
-        var handler = methodInfo.CreateDelegate<HandlerDelegate>(this);
+        var handler = methodInfo.CreateDelegate<IReadOnlyCommandInfo.HandlerDelegate>(this);
 
         if (Svc.Commands.AddHandler(command, new CommandInfo(handler) { HelpMessage = helpMessage }))
         {

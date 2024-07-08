@@ -1,20 +1,12 @@
-using Automaton.Utils;
 using Dalamud.Interface;
-using System;
 
 namespace Automaton.FeaturesSetup.Attributes;
 
 [AttributeUsage(AttributeTargets.Field, AllowMultiple = true)]
-public class ConfigInfoAttribute : Attribute
+public class ConfigInfoAttribute(string label, string desc) : Attribute
 {
-    public ConfigInfoAttribute(string translationkey)
-    {
-        Translationkey = translationkey;
-        Icon = FontAwesomeIcon.InfoCircle;
-        Color = Colors.Grey;
-    }
-
-    public string Translationkey { get; init; }
-    public FontAwesomeIcon Icon { get; init; }
-    public HaselColor Color { get; init; }
+    public string Label { get; init; } = label;
+    public string Description { get; init; } = desc;
+    public FontAwesomeIcon Icon { get; init; } = FontAwesomeIcon.InfoCircle;
+    public HaselColor Color { get; init; } = Colors.Grey;
 }

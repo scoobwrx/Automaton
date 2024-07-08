@@ -1,7 +1,5 @@
-using Automaton.Utils;
 using Dalamud.Interface.Utility.Raii;
 using ImGuiNET;
-using System;
 using System.Reflection;
 
 namespace Automaton.FeaturesSetup.Attributes;
@@ -14,27 +12,28 @@ public class EnumConfigAttribute : BaseConfigAttribute
     public override void Draw(Tweak tweak, object config, FieldInfo fieldInfo)
     {
         var enumType = fieldInfo.FieldType;
+        var attr = fieldInfo.GetCustomAttribute<BaseConfigAttribute>();
 
         string GetOptionLabel(int value) => $"{Enum.GetName(enumType, value)}";
 
         if (!NoLabel)
         {
-            ImGui.TextUnformatted(fieldInfo.Name);
+            ImGui.TextUnformatted(fieldInfo.Name.SplitWords());
         }
 
         using var indent = ImGuiX.ConfigIndent(!NoLabel);
 
-        var selectedValue = (int)(fieldInfo.GetValue(config) ?? 0);
+        var selectedValue = Convert.ToInt32(fieldInfo.GetValue(config) ?? 0);
         using var combo = ImRaii.Combo("##Input", GetOptionLabel(selectedValue));
         if (combo.Success)
         {
             foreach (var name in Enum.GetNames(enumType))
             {
-                var value = (int)Enum.Parse(enumType, name);
+                var value = Convert.ToInt32(Enum.Parse(enumType, name));
 
                 if (ImGui.Selectable(GetOptionLabel(value), selectedValue == value))
                 {
-                    fieldInfo.SetValue(config, value);
+                    fieldInfo.SetValue(config, Enum.ToObject(fieldInfo.FieldType, value));
                     OnChangeInternal(tweak, fieldInfo);
                 }
 
@@ -45,7 +44,7 @@ public class EnumConfigAttribute : BaseConfigAttribute
             }
         }
         combo?.Dispose();
-
-        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey, tweak.Description);
+        if (!attr?.Description.IsNullOrEmpty() ?? false)
+            ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey, attr!.Description);
     }
 }

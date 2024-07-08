@@ -1,4 +1,3 @@
-using System.Numerics;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
 

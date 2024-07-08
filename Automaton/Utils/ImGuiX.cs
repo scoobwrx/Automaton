@@ -1,11 +1,13 @@
+using Automaton.IPC;
 using Dalamud.Interface;
-using Dalamud.Interface.Internal;
+using Dalamud.Interface.Components;
+using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Utility.Raii;
 using ECommons;
+using ECommons.Configuration;
 using ECommons.ImGuiMethods;
+using FFXIVClientStructs.FFXIV.Client.Game;
 using ImGuiNET;
-using System;
-using System.Numerics;
 using System.Threading.Tasks;
 
 namespace Automaton.Utils;
@@ -68,7 +70,7 @@ public static class ImGuiX
         }
     }
 
-    public static void DrawSection(string Label, bool PushDown = true, bool RespectUiTheme = false, uint UIColor = 1)
+    public static void DrawSection(string Label, bool PushDown = true, bool RespectUiTheme = false, uint UIColor = 1, bool drawSeparator = true)
     {
         var style = ImGui.GetStyle();
 
@@ -82,10 +84,13 @@ public static class ImGuiX
 
         TextUnformattedColored(color, Label);
 
-        // pull up the separator
-        PushCursorY(-style.ItemSpacing.Y + 3);
-        ImGui.Separator();
-        PushCursorY(style.ItemSpacing.Y * 2 - 1);
+        if (drawSeparator)
+        {
+            // pull up the separator
+            PushCursorY(-style.ItemSpacing.Y + 3);
+            ImGui.Separator();
+            PushCursorY(style.ItemSpacing.Y * 2 - 1);
+        }
     }
 
     public static ImRaii.Indent ConfigIndent(bool enabled = true) => ImRaii.PushIndent(ImGui.GetFrameHeight() + ImGui.GetStyle().ItemSpacing.X / 2f, true, enabled);
@@ -93,7 +98,7 @@ public static class ImGuiX
     public static void Checkbox(string name, ref bool v)
     {
         if (ImGui.Checkbox(name, ref v))
-            SaveConfig();
+            EzConfig.Save();
     }
 
     public static void Icon(FontAwesomeIcon icon, uint? col = null)
@@ -103,6 +108,8 @@ public static class ImGuiX
             ImGui.Text(icon.ToIconString());
     }
 
+    public static void Icon(ushort iconID, int size) => Icon(Misc.GetIcon(iconID), size.Vec2());
+    public static void Icon(ushort iconID, Vector2 size) => Icon(Misc.GetIcon(iconID), size);
     public static void Icon(uint iconID, int size) => Icon(Misc.GetIcon(iconID), size.Vec2());
     public static void Icon(uint iconID, Vector2 size) => Icon(Misc.GetIcon(iconID), size);
     public static void Icon(IDalamudTextureWrap? icon, Vector2 size)
@@ -115,6 +122,43 @@ public static class ImGuiX
 
     public static float IconUnitHeight() => ImGuiHelpers.GetButtonSize(FontAwesomeIcon.Trash.ToIconString()).Y;
     public static float IconUnitWidth() => ImGuiHelpers.GetButtonSize(FontAwesomeIcon.Trash.ToIconString()).X;
+
+    public static bool IconButton(FontAwesomeIcon icon, string key, string tooltip = "", Vector2 size = default, bool disabled = false, bool active = false)
+    {
+        using var iconFont = ImRaii.PushFont(UiBuilder.IconFont);
+        if (!key.StartsWith("##")) key = "##" + key;
+
+        var disposables = new List<IDisposable>();
+
+        if (disabled)
+        {
+            disposables.Add(ImRaii.PushColor(ImGuiCol.Text, ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled]));
+            disposables.Add(ImRaii.PushColor(ImGuiCol.ButtonActive, ImGui.GetStyle().Colors[(int)ImGuiCol.Button]));
+            disposables.Add(ImRaii.PushColor(ImGuiCol.ButtonHovered, ImGui.GetStyle().Colors[(int)ImGuiCol.Button]));
+        }
+        else if (active)
+        {
+            disposables.Add(ImRaii.PushColor(ImGuiCol.Button, ImGui.GetStyle().Colors[(int)ImGuiCol.ButtonActive]));
+        }
+
+        var pressed = ImGui.Button(icon.ToIconString() + key, size);
+
+        foreach (var disposable in disposables)
+            disposable.Dispose();
+
+        iconFont?.Dispose();
+
+        if (tooltip != string.Empty && ImGui.IsItemHovered())
+            ImGui.SetTooltip(tooltip);
+
+        return pressed;
+    }
+
+    public static void ResetButton<T>(ref T var, T value)
+    {
+        if (IconButton(FontAwesomeIcon.Undo, $"##FormatReset{var}", $"Reset To Default: {var}"))
+            var = value;
+    }
 
     // https://github.com/KazWolfe/CollectorsAnxiety/blob/bf48a4b0681e5f70fb67e3b1cb22b4565ecfcc02/CollectorsAnxiety/Util/ImGuiUtil.cs#L10
     public static void DrawProgressBar(int progress, int total, Vector4 colour)
@@ -138,5 +182,40 @@ public static class ImGuiX
             }
         }
         catch (Exception e) { e.Log(); }
+    }
+
+    public static void PathfindButton(NavmeshIPC nav, Vector3 pos)
+    {
+        if (ImGuiComponents.IconButton($"###Pathfind{pos}", FontAwesomeIcon.Map))
+        {
+            if (!nav.IsRunning())
+                nav.PathfindAndMoveTo(pos, Conditions.IsInFlight);
+            else
+                nav.Stop();
+        }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Pathfind");
+    }
+
+    private static float startTime;
+    public static void FlashText(string text, Vector4 colour1, Vector4 colour2, float duration)
+    {
+        var currentTime = (float)ImGui.GetTime();
+        var elapsedTime = currentTime - startTime;
+
+        var t = (float)Math.Sin(elapsedTime / duration * Math.PI * 2) * 0.5f + 0.5f;
+
+        // Interpolate the color difference
+        Vector4 interpolatedColor = new(
+            colour1.X + t * (colour2.X - colour1.X),
+            colour1.Y + t * (colour2.Y - colour1.Y),
+            colour1.Z + t * (colour2.Z - colour1.Z),
+            1.0f
+        );
+
+        using var _ = ImRaii.PushColor(ImGuiCol.Text, interpolatedColor);
+        ImGui.TextUnformatted(text);
+
+        if (elapsedTime >= duration)
+            startTime = currentTime;
     }
 }

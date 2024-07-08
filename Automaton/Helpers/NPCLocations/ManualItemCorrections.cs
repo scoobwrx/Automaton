@@ -1,6 +1,4 @@
-using ECommons.DalamudServices;
 using Lumina.Excel.GeneratedSheets;
-using System.Collections.Generic;
 
 namespace Automaton.Helpers.NPCLocations;
 #nullable disable

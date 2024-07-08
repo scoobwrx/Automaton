@@ -1,7 +1,3 @@
-using ECommons.DalamudServices;
-using System;
-using System.Linq;
-
 namespace Automaton.FeaturesSetup.Attributes;
 
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]

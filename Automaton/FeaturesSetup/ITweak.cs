@@ -1,6 +1,3 @@
-using Automaton.FeaturesSetup.Attributes;
-using System;
-
 namespace Automaton.FeaturesSetup;
 
 public interface ITweak : IDisposable

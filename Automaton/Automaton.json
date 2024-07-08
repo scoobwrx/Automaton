@@ -2,10 +2,10 @@
     "Author": "Croizat",
     "Name": "Automaton",
     "Punchline": "Extra illegal",
-    "Description": "It's like the other tweak collection plugins, but different.'",
+    "Description": "It's like the other tweak collection plugins, but different.",
     "InternalName": "Automaton",
     "ApplicableVersion": "any",
-    "DalamudApiLevel": 9,
+    "DalamudApiLevel": 10,
     "IconUrl": "https://i.imgur.com/AVSzkMB.png",
     "RepoUrl": "https://github.com/Jaksuhn/Automaton",
     "Tags": [

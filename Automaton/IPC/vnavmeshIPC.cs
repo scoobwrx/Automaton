@@ -1,12 +1,9 @@
-using Automaton.Utils;
 using ECommons.EzIpcManager;
-using System;
-using System.Numerics;
 
 namespace Automaton.IPC;
 
 #nullable disable
-internal class NavmeshIPC
+public class NavmeshIPC
 {
     public static string Name = "vnavmesh";
     public NavmeshIPC() => EzIPC.Init(this, Name);

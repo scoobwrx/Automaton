@@ -1,5 +1,4 @@
 using FFXIVClientStructs.FFXIV.Client.UI;
-using System.Numerics;
 
 namespace Automaton.Utils;
 
@@ -19,5 +18,5 @@ public static class Colors
     public static HaselColor Grey4 { get; } = new(0.3f, 0.3f, 0.3f);
 
     public static unsafe bool IsLightTheme
-        => RaptureAtkModule.Instance()->AtkModule.ActiveColorThemeType == 1;
+        => RaptureAtkModule.Instance()->AtkUIColorHolder.ActiveColorThemeType == 1;
 }

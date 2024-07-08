@@ -1,13 +1,9 @@
-using Automaton.FeaturesSetup.Attributes;
+using Automaton.IPC;
+using Dalamud.Game.Text;
+using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Hooking;
 using Dalamud.Utility.Signatures;
 using ECommons.Automation.NeoTaskManager;
-using ECommons.Configuration;
-using ECommons.DalamudServices;
-using Microsoft.Scripting.Hosting;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 
 namespace Automaton.FeaturesSetup;
@@ -20,8 +16,11 @@ public abstract partial class Tweak : ITweak
         CachedType = GetType();
         InternalName = CachedType.Name;
         IncompatibilityWarnings = CachedType.GetCustomAttributes<IncompatibilityWarningAttribute>().ToArray();
+        Outdated = CachedType.GetCustomAttribute<TweakAttribute>()?.Outdated ?? false;
+        Disabled = CachedType.GetCustomAttribute<TweakAttribute>()?.Disabled ?? false;
 
         TaskManager = new();
+        Navmesh = new();
 
         try
         {
@@ -71,9 +70,10 @@ public abstract partial class Tweak : ITweak
     public bool Outdated { get; protected set; }
     public bool Ready { get; protected set; }
     public bool Enabled { get; protected set; }
+    public bool Disabled { get; protected set; }
 
     protected TaskManager TaskManager = null!;
-    internal IEzConfig? Configuration;
+    protected NavmeshIPC Navmesh = null!;
 
     public virtual void SetupAddressHooks() { }
     public virtual void SetupVTableHooks() { }
@@ -122,7 +122,7 @@ public abstract partial class Tweak // Internal
 
     internal virtual void EnableInternal()
     {
-        if (!Ready || Outdated) return;
+        if (!Ready || Outdated || Disabled) return;
 
         try
         {
@@ -158,8 +158,6 @@ public abstract partial class Tweak // Internal
 
         LastInternalException = null;
         Enabled = true;
-        C.EnabledTweaks.Add(Name);
-        SaveConfig();
     }
 
     internal virtual void DisableInternal(bool isDisposing = false)
@@ -200,8 +198,6 @@ public abstract partial class Tweak // Internal
         }
 
         Enabled = false;
-        C.EnabledTweaks.Remove(Name);
-        SaveConfig();
     }
 
     internal virtual void DisposeInternal()
@@ -409,17 +405,17 @@ public abstract partial class Tweak // Logging
     public void Fatal(Exception exception, string messageTemplate, params object[] values)
         => Svc.Log.Fatal(exception, $"[{InternalName}] {messageTemplate}", values);
 
-    public T GetConfig<T>() where T : IEzConfig, new()
+    public void ModuleMessage(SeString messageTemplate) => ModuleMessage(messageTemplate.TextValue);
+    public void ModuleMessage(string messageTemplate)
     {
-        Configuration ??= EzConfig.LoadConfiguration<T>($"ez{Name}.json", false);
-        return (T)Configuration;
-    }
-
-    public void SaveConfig()
-    {
-        if (Configuration != null)
+        var message = new XivChatEntry
         {
-            EzConfig.SaveConfiguration(Configuration, $"ez{Name}.json", true, false);
-        }
+            Message = new SeStringBuilder()
+                .AddUiForeground($"[{Name}] ", 62)
+                .Append(messageTemplate)
+                .Build()
+        };
+
+        Svc.Chat.Print(message);
     }
 }

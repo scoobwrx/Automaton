@@ -1,6 +1,3 @@
-using System;
-using System.Numerics;
-
 namespace Automaton.Utils;
 
 public struct Angle(float radians = 0)

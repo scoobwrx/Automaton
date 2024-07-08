@@ -1,17 +1,8 @@
-using Automaton.FeaturesSetup;
-using Automaton.Utils;
-using Dalamud.Interface.Internal;
 using Dalamud.Interface.Utility.Raii;
-using ECommons.Configuration;
-using ECommons.DalamudServices;
+using ECommons.ImGuiMethods;
 using ECommons.SimpleGui;
-using ECommons.Throttlers;
 using ImGuiNET;
-using System;
 using System.Drawing;
-using System.IO;
-using System.Linq;
-using System.Numerics;
 using System.Reflection;
 using System.Text.RegularExpressions;
 
@@ -19,13 +10,13 @@ namespace Automaton.UI;
 
 public partial class HaselWindow
 {
+    // Style from HaselTweaks
     // https://github.com/Haselnussbomber/HaselTweaks
     private const uint SidebarWidth = 250;
     private const string LogoManifestResource = "Automaton.Assets.rat.png";
 
     private string _selectedTweak = string.Empty;
-    private static IDalamudTextureWrap? _logoTextureWrap;
-    private Point _logoSize = new(425, 132);
+    private Point _logoSize = new(789, 983);
     private const float _logoScale = 0.3f;
 
     [GeneratedRegex("\\.0$")]
@@ -53,31 +44,10 @@ public partial class HaselWindow
 
         EzConfigGui.Window.AllowClickthrough = false;
         EzConfigGui.Window.AllowPinning = false;
-
-        try
-        {
-            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(LogoManifestResource)
-                ?? throw new Exception($"ManifestResource \"{LogoManifestResource}\" not found");
-
-            using var ms = new MemoryStream();
-            stream.CopyTo(ms);
-
-            _logoTextureWrap = Svc.PluginInterface.UiBuilder.LoadImage(ms.ToArray());
-        }
-        catch (Exception ex)
-        {
-            Svc.Log.Error(ex, "Error loading logo");
-        }
-    }
-
-    public void Dispose()
-    {
-        _logoTextureWrap?.Dispose();
     }
 
     public void Draw()
     {
-        if (ImGui.IsWindowFocused() && EzThrottler.Throttle("PeriodicConfigSave", 15000)) SaveConfig();
         DrawSidebar();
         ImGui.SameLine();
         DrawConfig();
@@ -97,7 +67,7 @@ public partial class HaselWindow
         ImGui.TableSetupColumn("Checkbox", ImGuiTableColumnFlags.WidthFixed);
         ImGui.TableSetupColumn("Tweak Name", ImGuiTableColumnFlags.WidthStretch);
 
-        foreach (var tweak in Tweaks.Where(t => !t.IsDebug || C.ShowDebug).OrderBy(t => t.Name))
+        foreach (var tweak in Tweaks.Where(t => !t.Disabled && (!t.IsDebug || C.ShowDebug)).OrderBy(t => t.Name))
         {
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
@@ -144,29 +114,19 @@ public partial class HaselWindow
             }
             else
             {
-                if (ImGui.Checkbox($"##Enabled_{tweak.Name}", ref enabled))
-                {
-                    if (!enabled)
-                        tweak.DisableInternal();
-                    else
-                        tweak.EnableInternal();
-                }
+                ImGuiEx.CollectionCheckbox($"##Enabled_{tweak.InternalName}", tweak.InternalName, C.EnabledTweaks);
             }
 
             ImGui.TableNextColumn();
 
             if (fixY)
-            {
                 ImGuiX.PushCursorY(3); // if i only knew why this happens
-            }
 
             using var colour = ImRaii.PushColor(ImGuiCol.Text, !tweak.Ready || tweak.Outdated ? (uint)Colors.Red : !enabled ? (uint)Colors.Grey : ImGui.GetColorU32(ImGuiCol.Text), !tweak.Ready || tweak.Outdated || !enabled);
 
             if (ImGui.Selectable($"{tweak.Name}##Selectable_{tweak.Name}", _selectedTweak == tweak.Name))
             {
-                _selectedTweak = _selectedTweak != tweak.Name
-                    ? tweak.Name
-                    : string.Empty;
+                _selectedTweak = _selectedTweak != tweak.Name ? tweak.Name : string.Empty;
             }
         }
     }
@@ -183,24 +143,27 @@ public partial class HaselWindow
             var cursorPos = ImGui.GetCursorPos();
             var contentAvail = ImGui.GetContentRegionAvail();
 
-            if (_logoTextureWrap != null && _logoTextureWrap.ImGuiHandle != 0)
+            if (Svc.Texture.GetFromManifestResource(Assembly.GetExecutingAssembly(), LogoManifestResource).TryGetWrap(out var logo, out var _))
             {
                 var maxWidth = SidebarWidth * 2 * 0.85f * ImGuiHelpers.GlobalScale;
-                _logoSize = (_logoTextureWrap.Size * _logoScale).ToPoint();
                 var ratio = maxWidth / _logoSize.X;
-                var scaledLogoSize = _logoScale != default ? _logoSize.ToVec2() : new Vector2(_logoSize.X, _logoSize.Y) * ratio;
+                var scaledLogoSize = _logoSize.ToVec2() * _logoScale;
 
                 ImGui.SetCursorPos(contentAvail / 2 - scaledLogoSize / 2 + new Vector2(ImGui.GetStyle().ItemSpacing.X, 0));
-                ImGui.Image(_logoTextureWrap.ImGuiHandle, scaledLogoSize);
+                ImGui.Image(logo.ImGuiHandle, scaledLogoSize);
             }
+
+            var welcomeStr = "hi! new expac, new version, new tweaks.\nThis is a warning that Automaton is in its early stages for Dawntrail still.";
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + ImGui.GetColumnWidth() * 0.5f - ImGui.CalcTextSize(welcomeStr).X * 0.5f);
+            ImGuiX.FlashText(welcomeStr, Colors.Gold, ImGui.GetStyle().Colors[(int)ImGuiCol.WindowBg], 2);
 
             // links, bottom left
             ImGui.SetCursorPos(cursorPos + new Vector2(0, contentAvail.Y - ImGui.GetTextLineHeight()));
-            ImGuiX.DrawLink("GitHub", "GitHub", "https://github.com/Haselnussbomber/HaselTweaks");
+            ImGuiX.DrawLink("GitHub", "GitHub", "https://github.com/Jaksuhn/Automaton");
             ImGui.SameLine();
             ImGui.TextUnformatted("•");
             ImGui.SameLine();
-            ImGuiX.DrawLink("Ko-fi", "Ko-fi", "https://ko-fi.com/haselnussbomber");
+            ImGuiX.DrawLink("Ko-fi", "Ko-fi", "https://ko-fi.com/croizat");
 
             // version, bottom right
             var version = GetType().Assembly.GetName().Version;
@@ -209,7 +172,6 @@ public partial class HaselWindow
                 var versionString = "v" + VersionPatchZeroRegex().Replace(version.ToString(), "");
                 ImGui.SetCursorPos(cursorPos + contentAvail - ImGui.CalcTextSize(versionString));
                 ImGui.TextUnformatted(versionString);
-                //ImGuiX.DrawLink(versionString, ("HaselTweaks.Config.ReleaseNotesLink.Tooltip"), $"https://github.com/Haselnussbomber/HaselTweaks/releases/tag/{versionString}");
             }
 
             return;
@@ -239,7 +201,6 @@ public partial class HaselWindow
         {
             ImGuiX.DrawSection("Incompatibility Warning");
             ImGuiX.Icon(60073, 24);
-            //Svc.Texture.GetIcon(60073).Draw(24);
             ImGui.SameLine();
             var cursorPosX = ImGui.GetCursorPosX();
 

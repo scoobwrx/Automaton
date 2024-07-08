@@ -1,6 +1,4 @@
-using Automaton.Utils;
 using ImGuiNET;
-using System;
 using System.Globalization;
 using System.Reflection;
 
@@ -16,8 +14,9 @@ public class FloatConfigAttribute : BaseConfigAttribute
     public override void Draw(Tweak tweak, object config, FieldInfo fieldInfo)
     {
         var value = (float)fieldInfo.GetValue(config)!;
+        var attr = fieldInfo.GetCustomAttribute<BaseConfigAttribute>();
 
-        ImGui.TextUnformatted(fieldInfo.Name);
+        ImGui.TextUnformatted(fieldInfo.Name.SplitWords());
 
         using var indent = ImGuiX.ConfigIndent();
 
@@ -33,7 +32,7 @@ public class FloatConfigAttribute : BaseConfigAttribute
             OnChangeInternal(tweak, fieldInfo);
         }
 
-        using var descriptionIndent = ImGuiX.ConfigIndent();
-        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey, tweak.Description);
+        if (!attr?.Description.IsNullOrEmpty() ?? false)
+            ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey, attr!.Description);
     }
 }

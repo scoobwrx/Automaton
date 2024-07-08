@@ -1,6 +1,4 @@
-using Automaton.Utils;
 using ImGuiNET;
-using System;
 using System.Reflection;
 
 namespace Automaton.FeaturesSetup.Attributes;
@@ -13,8 +11,9 @@ public class StringConfigAttribute : BaseConfigAttribute
     public override void Draw(Tweak tweak, object config, FieldInfo fieldInfo)
     {
         var value = (string)fieldInfo.GetValue(config)!;
+        var attr = fieldInfo.GetCustomAttribute<BaseConfigAttribute>();
 
-        ImGui.TextUnformatted(fieldInfo.Name);
+        ImGui.TextUnformatted(fieldInfo.Name.SplitWords());
 
         if (ImGui.InputText("##Input", ref value, 50))
         {
@@ -28,6 +27,7 @@ public class StringConfigAttribute : BaseConfigAttribute
             OnChangeInternal(tweak, fieldInfo);
         }
 
-        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey, tweak.Description);
+        if (!attr?.Description.IsNullOrEmpty() ?? false)
+            ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey, attr!.Description);
     }
 }

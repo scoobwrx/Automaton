@@ -54,9 +54,10 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="DalamudPackager" Version="2.1.12" />
+        <PackageReference Include="DalamudPackager" Version="2.1.13" />
         <PackageReference Include="IronPython" Version="3.4.1" />
-        <PackageReference Include="YamlDotNet" Version="15.1.2" />
+        <PackageReference Include="NetStone" Version="1.1.2" />
+        <PackageReference Include="YamlDotNet" Version="15.3.0" />
         <Reference Include="Newtonsoft.Json">
             <HintPath>$(DalamudLibPath)Newtonsoft.Json.dll</HintPath>
             <Private>False</Private>
@@ -97,15 +98,12 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\ClickLib\ClickLib\ClickLib.csproj" />
         <ProjectReference Include="..\ECommons\ECommons\ECommons.csproj" />
+		<ProjectReference Include="..\KamiToolKit\KamiToolKit.csproj" />
     </ItemGroup>
 
     <ItemGroup>
         <Compile Update="UI\DebugWindow.cs">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </Compile>
-        <Compile Update="UI\MainWindow.cs">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Compile>
     </ItemGroup>

@@ -2,6 +2,7 @@ using Lumina.Excel.GeneratedSheets;
 
 namespace Automaton.Helpers.NPCLocations;
 
+#nullable disable
 public class NpcLocation
 {
     public NpcLocation(float x, float y, TerritoryType territoryType, uint? map = null)
