@@ -1,6 +1,7 @@
-using Automaton.Debugging;
+using Dalamud.Game.ClientState.Objects.SubKinds;
+using Dalamud.Game.Text;
 using Dalamud.Interface.Windowing;
-using System.Numerics;
+using ImGuiNET;
 
 namespace Automaton.UI;
 
@@ -19,5 +20,16 @@ internal class DebugWindow : Window
     {
 
     }
-    public override void Draw() => DebugManager.DrawDebugWindow();
+
+    public unsafe override void Draw()
+    {
+        foreach (var o in Svc.Objects.Where(o => o is IPlayerCharacter))
+        {
+            ImGui.TextUnformatted($"{o.Name}: {o.GameObjectId}//{o.EntityId}//{o.DataId}////{o.TargetObjectId}");
+        }
+        foreach (var icon in Enum.GetValues<SeIconChar>())
+        {
+            ImGui.TextUnformatted($"{icon.ToIconChar()} - {icon}");
+        }
+    }
 }

@@ -21,7 +21,7 @@
         <PackageId>$(PluginName)</PackageId>
         <Product>$(PluginName)</Product>
         <RootNamespace>$(PluginName)</RootNamespace>
-        <Nullable>disable</Nullable>
+        <Nullable>enable</Nullable>
         <NoWarn>CS1591</NoWarn>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <EnableWindowsTargeting>true</EnableWindowsTargeting>
@@ -46,11 +46,18 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="AngleSharp" Version="1.0.5" />
-        <PackageReference Include="DalamudPackager" Version="2.1.12" />
+      <None Remove="Assets\rat.png" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <EmbeddedResource Include="Assets\rat.png" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="DalamudPackager" Version="2.1.13" />
         <PackageReference Include="IronPython" Version="3.4.1" />
-        <PackageReference Include="NAudio" Version="2.1.0" />
-        <PackageReference Include="SocketIOClient" Version="3.0.8" />
+        <PackageReference Include="NetStone" Version="1.1.2" />
+        <PackageReference Include="YamlDotNet" Version="15.3.0" />
         <Reference Include="Newtonsoft.Json">
             <HintPath>$(DalamudLibPath)Newtonsoft.Json.dll</HintPath>
             <Private>False</Private>
@@ -91,15 +98,12 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\ClickLib\ClickLib\ClickLib.csproj" />
         <ProjectReference Include="..\ECommons\ECommons\ECommons.csproj" />
+		<ProjectReference Include="..\KamiToolKit\KamiToolKit.csproj" />
     </ItemGroup>
 
     <ItemGroup>
         <Compile Update="UI\DebugWindow.cs">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </Compile>
-        <Compile Update="UI\MainWindow.cs">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Compile>
     </ItemGroup>

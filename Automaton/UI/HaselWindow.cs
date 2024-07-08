@@ -1,344 +1,291 @@
-//using System;
-//using System.Drawing;
-//using System.IO;
-//using System.Linq;
-//using System.Numerics;
-//using System.Reflection;
-//using System.Text.RegularExpressions;
-//using Automaton.Features;
-//using Automaton.FeaturesSetup;
-//using Dalamud.Interface.Internal;
-//using Dalamud.Interface.Utility.Raii;
-//using Dalamud.Interface.Windowing;
-//using ECommons.DalamudServices;
-//using ImGuiNET;
-//using static System.Net.Mime.MediaTypeNames;
+using Dalamud.Interface.Utility.Raii;
+using ECommons.ImGuiMethods;
+using ECommons.SimpleGui;
+using ImGuiNET;
+using System.Drawing;
+using System.Reflection;
+using System.Text.RegularExpressions;
 
-//namespace Automaton.UI;
+namespace Automaton.UI;
 
-//public partial class PWindow : Window, IDisposable
-//{
-//    private const uint SidebarWidth = 250;
-//    private const string LogoManifestResource = "Haselfeatures.Assets.Logo.png";
+public partial class HaselWindow
+{
+    // Style from HaselTweaks
+    // https://github.com/Haselnussbomber/HaselTweaks
+    private const uint SidebarWidth = 250;
+    private const string LogoManifestResource = "Automaton.Assets.rat.png";
 
-//    private string _selectedfeature = string.Empty;
-//    private readonly IDalamudTextureWrap? _logoTextureWrap;
-//    private readonly Point _logoSize = new(425, 132);
+    private string _selectedTweak = string.Empty;
+    private Point _logoSize = new(789, 983);
+    private const float _logoScale = 0.3f;
 
-//    [GeneratedRegex("\\.0$")]
-//    private static partial Regex VersionPatchZeroRegex();
+    [GeneratedRegex("\\.0$")]
+    private static partial Regex VersionPatchZeroRegex();
 
-//    public PWindow() : base("Haselfeatures")
-//    {
-//        var width = (SidebarWidth * 3) + ImGui.GetStyle().ItemSpacing.X + ImGui.GetStyle().FramePadding.X * 2;
+    private Tweak? SelectedTweak => Tweaks.FirstOrDefault(t => t.Name == _selectedTweak);
 
-//        Namespace = "HaselfeaturesConfig";
+    public HaselWindow() { }
 
-//        Size = new Vector2(width, 600);
-//        SizeConstraints = new()
-//        {
-//            MinimumSize = new Vector2(width, 600),
-//            MaximumSize = new Vector2(4096, 2160)
-//        };
+    public static void SetWindowProperties()
+    {
+        var width = SidebarWidth * 3 + ImGui.GetStyle().ItemSpacing.X + ImGui.GetStyle().FramePadding.X * 2;
 
-//        SizeCondition = ImGuiCond.Always;
+        EzConfigGui.Window.Size = new Vector2(width, 600);
+        EzConfigGui.Window.SizeConstraints = new()
+        {
+            MinimumSize = new Vector2(width, 600),
+            MaximumSize = new Vector2(4096, 2160)
+        };
 
-//        Flags |= ImGuiWindowFlags.AlwaysAutoResize;
-//        Flags |= ImGuiWindowFlags.NoSavedSettings;
+        EzConfigGui.Window.SizeCondition = ImGuiCond.Always;
 
-//        AllowClickthrough = false;
-//        AllowPinning = false;
+        EzConfigGui.Window.Flags |= ImGuiWindowFlags.AlwaysAutoResize;
+        EzConfigGui.Window.Flags |= ImGuiWindowFlags.NoSavedSettings;
 
-//        try
-//        {
-//            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(LogoManifestResource)
-//                ?? throw new Exception($"ManifestResource \"{LogoManifestResource}\" not found");
+        EzConfigGui.Window.AllowClickthrough = false;
+        EzConfigGui.Window.AllowPinning = false;
+    }
 
-//            using var ms = new MemoryStream();
-//            stream.CopyTo(ms);
+    public void Draw()
+    {
+        DrawSidebar();
+        ImGui.SameLine();
+        DrawConfig();
+    }
 
-//            _logoTextureWrap = Svc.PluginInterface.UiBuilder.LoadImage(ms.ToArray());
-//        }
-//        catch (Exception ex)
-//        {
-//            Svc.Log.Error(ex, "Error loading logo");
-//        }
-//    }
+    private void DrawSidebar()
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        using var child = ImRaii.Child("##Sidebar", new Vector2(SidebarWidth * scale, -1), true);
+        if (!child.Success)
+            return;
 
-//    public void Dispose()
-//    {
-//        _logoTextureWrap?.Dispose();
-//    }
+        using var table = ImRaii.Table("##SidebarTable", 2, ImGuiTableFlags.NoSavedSettings);
+        if (!table.Success)
+            return;
 
-//    private Feature? Selectedfeature => (Feature)P.Features.FirstOrDefault(f => f.Name == _selectedfeature);
+        ImGui.TableSetupColumn("Checkbox", ImGuiTableColumnFlags.WidthFixed);
+        ImGui.TableSetupColumn("Tweak Name", ImGuiTableColumnFlags.WidthStretch);
 
-//    public override void OnClose()
-//    {
-//        _selectedfeature = string.Empty;
-//        Flags &= ~ImGuiWindowFlags.MenuBar;
-//        base.OnClose();
-//    }
+        foreach (var tweak in Tweaks.Where(t => !t.Disabled && (!t.IsDebug || C.ShowDebug)).OrderBy(t => t.Name))
+        {
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
 
-//    public override void Draw()
-//    {
-//        DrawSidebar();
-//        ImGui.SameLine();
-//        DrawConfig();
-//    }
+            var enabled = tweak.Enabled;
+            var fixY = false;
 
-//    private void DrawSidebar()
-//    {
-//        var scale = ImGuiHelpers.GlobalScale;
-//        using var child = ImRaii.Child("##Sidebar", new Vector2(SidebarWidth * scale, -1), true);
-//        if (!child.Success)
-//            return;
+            if (!tweak.Ready || tweak.Outdated)
+            {
+                var startPos = ImGui.GetCursorPos();
+                var drawList = ImGui.GetWindowDrawList();
+                var pos = ImGui.GetWindowPos() + startPos - new Vector2(0, ImGui.GetScrollY());
+                var frameHeight = ImGui.GetFrameHeight();
 
-//        using var table = ImRaii.Table("##SidebarTable", 2, ImGuiTableFlags.NoSavedSettings);
-//        if (!table.Success)
-//            return;
+                var size = new Vector2(frameHeight);
+                ImGui.SetCursorPos(startPos);
+                ImGui.Dummy(size);
 
-//        ImGui.TableSetupColumn("Checkbox", ImGuiTableColumnFlags.WidthFixed);
-//        ImGui.TableSetupColumn("feature Name", ImGuiTableColumnFlags.WidthStretch);
+                if (ImGui.IsItemHovered())
+                {
+                    var (status, color) = GetTweakStatus(tweak);
+                    using var tooltip = ImRaii.Tooltip();
+                    if (tooltip.Success)
+                    {
+                        ImGuiX.TextUnformattedColored(color, status);
+                    }
+                }
 
-//        foreach (var feature in P.Features.OrderBy(t => t.Name))
-//        {
-//            ImGui.TableNextRow();
-//            ImGui.TableNextColumn();
+                drawList.AddRectFilled(pos, pos + size, ImGui.GetColorU32(ImGuiCol.FrameBg), 3f, ImDrawFlags.RoundCornersAll);
 
-//            var enabled = feature.Enabled;
-//            var fixY = false;
+                var pad = frameHeight / 4f;
+                pos += new Vector2(pad);
+                size -= new Vector2(pad) * 2;
 
-//            if (!feature.Ready || feature.Outdated)
-//            {
-//                var startPos = ImGui.GetCursorPos();
-//                var drawList = ImGui.GetWindowDrawList();
-//                var pos = ImGui.GetWindowPos() + startPos - new Vector2(0, ImGui.GetScrollY());
-//                var frameHeight = ImGui.GetFrameHeight();
+                drawList.PathLineTo(pos);
+                drawList.PathLineTo(pos + size);
+                drawList.PathStroke(Colors.Red, ImDrawFlags.None, frameHeight / 5f * 0.5f);
 
-//                var size = new Vector2(frameHeight);
-//                ImGui.SetCursorPos(startPos);
-//                ImGui.Dummy(size);
+                drawList.PathLineTo(pos + new Vector2(0, size.Y));
+                drawList.PathLineTo(pos + new Vector2(size.X, 0));
+                drawList.PathStroke(Colors.Red, ImDrawFlags.None, frameHeight / 5f * 0.5f);
 
-//                if (ImGui.IsItemHovered())
-//                {
-//                    var (status, color) = GetfeatureStatus(feature);
-//                    using var tooltip = ImRaii.Tooltip();
-//                    if (tooltip.Success)
-//                    {
-//                        using (ImRaii.PushColor(ImGuiCol.Text, color))
-//                            ImGui.TextUnformatted(status);
-//                    }
-//                }
+                fixY = true;
+            }
+            else
+            {
+                ImGuiEx.CollectionCheckbox($"##Enabled_{tweak.InternalName}", tweak.InternalName, C.EnabledTweaks);
+            }
 
-//                drawList.AddRectFilled(pos, pos + size, ImGui.GetColorU32(ImGuiCol.FrameBg), 3f, ImDrawFlags.RoundCornersAll);
+            ImGui.TableNextColumn();
 
-//                var pad = frameHeight / 4f;
-//                pos += new Vector2(pad);
-//                size -= new Vector2(pad) * 2;
+            if (fixY)
+                ImGuiX.PushCursorY(3); // if i only knew why this happens
 
-//                drawList.PathLineTo(pos);
-//                drawList.PathLineTo(pos + size);
-//                drawList.PathStroke(Colors.Red, ImDrawFlags.None, frameHeight / 5f * 0.5f);
+            using var colour = ImRaii.PushColor(ImGuiCol.Text, !tweak.Ready || tweak.Outdated ? (uint)Colors.Red : !enabled ? (uint)Colors.Grey : ImGui.GetColorU32(ImGuiCol.Text), !tweak.Ready || tweak.Outdated || !enabled);
 
-//                drawList.PathLineTo(pos + new Vector2(0, size.Y));
-//                drawList.PathLineTo(pos + new Vector2(size.X, 0));
-//                drawList.PathStroke(Colors.Red, ImDrawFlags.None, frameHeight / 5f * 0.5f);
+            if (ImGui.Selectable($"{tweak.Name}##Selectable_{tweak.Name}", _selectedTweak == tweak.Name))
+            {
+                _selectedTweak = _selectedTweak != tweak.Name ? tweak.Name : string.Empty;
+            }
+        }
+    }
 
-//                fixY = true;
-//            }
-//            else
-//            {
-//                if (ImGui.Checkbox($"##Enabled_{feature.Name}", ref enabled))
-//                {
-//                    if (!enabled)
-//                    {
-//                        feature.Disable();
+    private void DrawConfig()
+    {
+        using var child = ImRaii.Child("##Config", new Vector2(-1), true);
+        if (!child.Success)
+            return;
 
-//                        if (P.Features.Where(f => f.Enabled).Contains(feature.Name))
-//                        {
-//                            P.Config.Enabledfeatures.Remove(feature.Name);
-//                            P.Config.Save();
-//                        }
-//                    }
-//                    else
-//                    {
-//                        feature.EnableInternal();
+        var tweak = SelectedTweak;
+        if (tweak == null)
+        {
+            var cursorPos = ImGui.GetCursorPos();
+            var contentAvail = ImGui.GetContentRegionAvail();
 
-//                        if (!P.Config.Enabledfeatures.Contains(feature.Name))
-//                        {
-//                            P.Config.Enabledfeatures.Add(feature.Name);
-//                            P.Config.Save();
-//                        }
-//                    }
-//                }
-//            }
+            if (Svc.Texture.GetFromManifestResource(Assembly.GetExecutingAssembly(), LogoManifestResource).TryGetWrap(out var logo, out var _))
+            {
+                var maxWidth = SidebarWidth * 2 * 0.85f * ImGuiHelpers.GlobalScale;
+                var ratio = maxWidth / _logoSize.X;
+                var scaledLogoSize = _logoSize.ToVec2() * _logoScale;
 
-//            ImGui.TableNextColumn();
+                ImGui.SetCursorPos(contentAvail / 2 - scaledLogoSize / 2 + new Vector2(ImGui.GetStyle().ItemSpacing.X, 0));
+                ImGui.Image(logo.ImGuiHandle, scaledLogoSize);
+            }
 
-//            if (fixY)
-//            {
-//                ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 3);
-//            }
+            var welcomeStr = "hi! new expac, new version, new tweaks.\nThis is a warning that Automaton is in its early stages for Dawntrail still.";
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + ImGui.GetColumnWidth() * 0.5f - ImGui.CalcTextSize(welcomeStr).X * 0.5f);
+            ImGuiX.FlashText(welcomeStr, Colors.Gold, ImGui.GetStyle().Colors[(int)ImGuiCol.WindowBg], 2);
 
-//            if (!feature.Ready)
-//            {
-//                ImGui.PushStyleColor(ImGuiCol.Text, (uint)Colors.Red);
-//            }
-//            else if (!enabled)
-//            {
-//                ImGui.PushStyleColor(ImGuiCol.Text, (uint)Colors.Grey);
-//            }
+            // links, bottom left
+            ImGui.SetCursorPos(cursorPos + new Vector2(0, contentAvail.Y - ImGui.GetTextLineHeight()));
+            ImGuiX.DrawLink("GitHub", "GitHub", "https://github.com/Jaksuhn/Automaton");
+            ImGui.SameLine();
+            ImGui.TextUnformatted("•");
+            ImGui.SameLine();
+            ImGuiX.DrawLink("Ko-fi", "Ko-fi", "https://ko-fi.com/croizat");
 
-//            if (ImGui.Selectable($"{feature.Name}##Selectable_{feature.Name}", _selectedfeature == feature.Name))
-//            {
-//                Selectedfeature?.OnConfigWindowClose();
+            // version, bottom right
+            var version = GetType().Assembly.GetName().Version;
+            if (version != null)
+            {
+                var versionString = "v" + VersionPatchZeroRegex().Replace(version.ToString(), "");
+                ImGui.SetCursorPos(cursorPos + contentAvail - ImGui.CalcTextSize(versionString));
+                ImGui.TextUnformatted(versionString);
+            }
 
-//                _selectedfeature = _selectedfeature != feature.Name
-//                    ? feature.Name
-//                    : string.Empty;
-//            }
+            return;
+        }
 
-//            if (!feature.Ready || !enabled)
-//            {
-//                ImGui.PopStyleColor();
-//            }
-//        }
-//    }
+        using var id = ImRaii.PushId(tweak.Name);
 
-//    private void DrawConfig()
-//    {
-//        using var child = ImRaii.Child("##Config", new Vector2(-1), true);
-//        if (!child.Success)
-//            return;
+        ImGuiX.TextUnformattedColored(Colors.Gold, tweak.Name);
 
-//        var feature = Selectedfeature;
-//        if (feature == null)
-//        {
-//            var cursorPos = ImGui.GetCursorPos();
-//            var contentAvail = ImGui.GetContentRegionAvail();
+        var (status, color) = GetTweakStatus(tweak);
 
-//            if (_logoTextureWrap != null && _logoTextureWrap.ImGuiHandle != 0)
-//            {
-//                var maxWidth = SidebarWidth * 2 * 0.85f * ImGuiHelpers.GlobalScale;
-//                var ratio = maxWidth / _logoSize.X;
-//                var scaledLogoSize = new Vector2(_logoSize.X, _logoSize.Y) * ratio;
+        var posX = ImGui.GetCursorPosX();
+        var windowX = ImGui.GetContentRegionAvail().X;
+        var textSize = ImGui.CalcTextSize(status);
 
-//                ImGui.SetCursorPos(contentAvail / 2 - scaledLogoSize / 2 + new Vector2(ImGui.GetStyle().ItemSpacing.X, 0));
-//                ImGui.Image(_logoTextureWrap.ImGuiHandle, scaledLogoSize);
-//            }
-//            return;
-//        }
+        ImGui.SameLine(windowX - textSize.X);
 
-//        using var id = ImRaii.PushId(feature.Name);
+        ImGuiX.TextUnformattedColored(color, status);
 
-//        using (ImRaii.PushColor(ImGuiCol.Text, Colors.Gold))
-//            ImGui.TextUnformatted(feature.Name);
+        if (!string.IsNullOrEmpty(tweak.Description))
+        {
+            ImGuiX.DrawPaddedSeparator();
+            ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey2, tweak.Description);
+        }
 
-//        var (status, color) = GetfeatureStatus(feature);
+        if (tweak.IncompatibilityWarnings.Any(entry => entry.IsLoaded))
+        {
+            ImGuiX.DrawSection("Incompatibility Warning");
+            ImGuiX.Icon(60073, 24);
+            ImGui.SameLine();
+            var cursorPosX = ImGui.GetCursorPosX();
 
-//        var posX = ImGui.GetCursorPosX();
-//        var windowX = ImGui.GetContentRegionAvail().X;
-//        var textSize = ImGui.CalcTextSize(status);
+            static string getConfigName(string tweakName, string configName) => $"{tweakName}: {configName}";
 
-//        ImGui.SameLine(windowX - textSize.X);
+            if (tweak.IncompatibilityWarnings.Length == 1)
+            {
+                var entry = tweak.IncompatibilityWarnings[0];
+                var pluginName = $"{entry.InternalName}";
 
-//        using (ImRaii.PushColor(ImGuiCol.Text, color))
-//            ImGui.TextUnformatted(status);
+                if (entry.IsLoaded)
+                {
+                    if (entry.ConfigNames.Length == 0)
+                    {
+                        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey2, $"In order for this tweak to work properly, please make sure {pluginName} is disabled.");
+                    }
+                    else if (entry.ConfigNames.Length == 1)
+                    {
+                        var configName = getConfigName(entry.InternalName, entry.ConfigNames[0]);
+                        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey2, $"In order for this tweak to work properly, please make sure {configName} is disabled in {pluginName}.");
+                    }
+                    else if (entry.ConfigNames.Length > 1)
+                    {
+                        var configNames = entry.ConfigNames.Select((configName) => $"{configName}");
+                        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey2, $"In order for this tweak to work properly, please make sure {pluginName} is disabled." + $"\n - {string.Join("\n- ", configNames)}");
+                    }
+                }
+            }
+            else if (tweak.IncompatibilityWarnings.Length > 1)
+            {
+                ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey2, "In order for this tweak to work properly, please make sure");
 
-//        if (!string.IsNullOrEmpty(feature.Description))
-//        {
-//            var style = ImGui.GetStyle();
-//            ImGui.SetCursorPosY(ImGui.GetCursorPosY() + style.ItemSpacing.Y);
-//            ImGui.Separator();
-//            ImGui.SetCursorPosY(ImGui.GetCursorPosY() + style.ItemSpacing.Y - 1);
-//            ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey2, feature.Description);
-//        }
+                foreach (var entry in tweak.IncompatibilityWarnings.Where(entry => entry.IsLoaded))
+                {
+                    var pluginName = $"{entry.InternalName}";
 
-//        if (feature.IncompatibilityWarnings.Any(entry => entry.IsLoaded))
-//        {
-//            ImGuiUtils.DrawSection(t("Haselfeatures.Config.SectionTitle.IncompatibilityWarning"));
-//            Svc.Texture.GetIcon(60073).Draw(24);
-//            ImGui.SameLine();
-//            var cursorPosX = ImGui.GetCursorPosX();
+                    if (entry.ConfigNames.Length == 0)
+                    {
+                        ImGui.SetCursorPosX(cursorPosX);
+                        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey2, $"{pluginName} is disabled");
+                    }
+                    else if (entry.ConfigNames.Length == 1)
+                    {
+                        ImGui.SetCursorPosX(cursorPosX);
+                        var configName = $"HaselTweaks.Config.IncompatibilityWarning.Plugin.{entry.InternalName}.Config.{entry.ConfigNames[0]}";
+                        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey2, $"{configName} is disabled in {pluginName}");
+                    }
+                    else if (entry.ConfigNames.Length > 1)
+                    {
+                        ImGui.SetCursorPosX(cursorPosX);
+                        var configNames = entry.ConfigNames.Select((configName) => $"{configName}");
+                        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey2, ("{pluginName} is disabled", pluginName) + $"\n    - {string.Join("\n    - ", configNames)}");
+                    }
+                }
+            }
+        }
 
-//            static string getConfigName(string featureName, string configName)
-//                => t($"Haselfeatures.Config.IncompatibilityWarning.P.{featureName}.Config.{configName}");
+        tweak.DrawConfig();
+    }
 
-//            if (feature.IncompatibilityWarnings.Length == 1)
-//            {
-//                var entry = feature.IncompatibilityWarnings[0];
-//                var PName = t($"Haselfeatures.Config.IncompatibilityWarning.P.{entry.Name}.Name");
+    private static (string, HaselColor) GetTweakStatus(Tweak tweak)
+    {
+        var status = "???";
+        var color = Colors.Grey3;
 
-//                if (entry.IsLoaded)
-//                {
-//                    if (entry.ConfigNames.Length == 0)
-//                    {
-//                        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey2, t("Haselfeatures.Config.IncompatibilityWarning.Single.P", PName));
-//                    }
-//                    else if (entry.ConfigNames.Length == 1)
-//                    {
-//                        var configName = getConfigName(entry.Name, entry.ConfigNames[0]);
-//                        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey2, t("Haselfeatures.Config.IncompatibilityWarning.Single.PSetting", configName, PName));
-//                    }
-//                    else if (entry.ConfigNames.Length > 1)
-//                    {
-//                        var configNames = entry.ConfigNames.Select((configName) => t($"Haselfeatures.Config.IncompatibilityWarning.P.{entry.Name}.Config.{configName}"));
-//                        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey2, t("Haselfeatures.Config.IncompatibilityWarning.Single.PSettings", PName) + $"\n- {string.Join("\n- ", configNames)}");
-//                    }
-//                }
-//            }
-//            else if (feature.IncompatibilityWarnings.Length > 1)
-//            {
-//                ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey2, t("Haselfeatures.Config.IncompatibilityWarning.Multi.Preface"));
+        if (tweak.Outdated)
+        {
+            status = "Outdated";
+            color = Colors.Red;
+        }
+        else if (!tweak.Ready)
+        {
+            status = "Initialization Failed";
+            color = Colors.Red;
+        }
+        else if (tweak.Enabled)
+        {
+            status = "Enabled";
+            color = Colors.Green;
+        }
+        else if (!tweak.Enabled)
+        {
+            status = "Disabled";
+        }
 
-//                foreach (var entry in feature.IncompatibilityWarnings.Where(entry => entry.IsLoaded))
-//                {
-//                    var PName = t($"Haselfeatures.Config.IncompatibilityWarning.P.{entry.Name}.Name");
-
-//                    if (entry.ConfigNames.Length == 0)
-//                    {
-//                        ImGui.SetCursorPosX(cursorPosX);
-//                        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey2, t("Haselfeatures.Config.IncompatibilityWarning.Multi.P", PName));
-//                    }
-//                    else if (entry.ConfigNames.Length == 1)
-//                    {
-//                        ImGui.SetCursorPosX(cursorPosX);
-//                        var configName = t($"Haselfeatures.Config.IncompatibilityWarning.P.{entry.Name}.Config.{entry.ConfigNames[0]}");
-//                        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey2, t("Haselfeatures.Config.IncompatibilityWarning.Multi.PSetting", configName, PName));
-//                    }
-//                    else if (entry.ConfigNames.Length > 1)
-//                    {
-//                        ImGui.SetCursorPosX(cursorPosX);
-//                        var configNames = entry.ConfigNames.Select((configName) => t($"Haselfeatures.Config.IncompatibilityWarning.P.{entry.Name}.Config.{configName}"));
-//                        ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey2, t("Haselfeatures.Config.IncompatibilityWarning.Multi.PSettings", PName) + $"\n    - {string.Join("\n    - ", configNames)}");
-//                    }
-//                }
-//            }
-//        }
-
-//        feature.DrawConfig();
-//    }
-
-//    private static (string, HaselColor) GetfeatureStatus(BaseFeature feature)
-//    {
-//        var status = t("Haselfeatures.Config.featureStatus.Unknown");
-//        var color = Colors.Grey3;
-
-//        if (!feature.Ready)
-//        {
-//            status = t("Haselfeatures.Config.featureStatus.InitializationFailed");
-//            color = Colors.Red;
-//        }
-//        else if (feature.Enabled)
-//        {
-//            status = t("Haselfeatures.Config.featureStatus.Enabled");
-//            color = Colors.Green;
-//        }
-//        else if (!feature.Enabled)
-//        {
-//            status = t("Haselfeatures.Config.featureStatus.Disabled");
-//        }
-
-//        return (status, color);
-//    }
-//}
+        return (status, color);
+    }
+}

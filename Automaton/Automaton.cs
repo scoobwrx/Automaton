@@ -1,135 +1,97 @@
-using Automaton.FeaturesSetup;
-using Automaton.IPC;
+using Automaton.Configuration;
 using Automaton.UI;
-using Dalamud.Game.Command;
-using Dalamud.Interface.Windowing;
-using Dalamud.IoC;
 using Dalamud.Plugin;
 using ECommons;
 using ECommons.Automation.LegacyTaskManager;
-using ECommons.DalamudServices;
-using ImGuiNET;
-using System.Collections.Generic;
-using System.Linq;
+using ECommons.Configuration;
+using ECommons.SimpleGui;
+using KamiToolKit;
+using System.Collections.Specialized;
 using System.Reflection;
 
 namespace Automaton;
 
 public class Automaton : IDalamudPlugin
 {
-    [PluginService] public static IAddonLifecycle AddonLifecycle { get; private set; }
-
     public static string Name => "Automaton";
-    private const string CommandName = "/automaton";
-    internal WindowSystem Ws;
-    internal MainWindow MainWindow;
-    internal DebugWindow DebugWindow;
+    private const string Command = "/automaton";
 
-    internal static Automaton P;
-    internal static DalamudPluginInterface pi;
-    public static Configuration Config;
+    internal static Automaton P = null!;
+    private readonly Config Config;
+    public static Config C => P.Config;
 
-    public List<FeatureProvider> FeatureProviders = [];
-    private FeatureProvider provider;
-    public IEnumerable<BaseFeature> Features => FeatureProviders.Where(x => !x.Disposed).SelectMany(x => x.Features).OrderBy(x => x.Name);
+    public static readonly HashSet<Tweak> Tweaks = [];
     internal TaskManager TaskManager;
+    internal NativeController NativeController;
+    internal AddonObserver AddonObserver;
 
-    public Automaton(DalamudPluginInterface pluginInterface)
+    public Automaton(IDalamudPluginInterface pluginInterface)
     {
         P = this;
-        pi = pluginInterface;
-        Initialize();
+        ECommonsMain.Init(pluginInterface, P, ECommons.Module.DalamudReflector, ECommons.Module.ObjectFunctions);
+
+        EzConfig.DefaultSerializationFactory = new YamlFactory();
+        Config = EzConfig.Init<Config>();
+
+        EzCmd.Add(Command, OnCommand, $"Opens the {Name} menu");
+        EzConfigGui.Init(new HaselWindow().Draw);
+        HaselWindow.SetWindowProperties();
+        EzConfigGui.WindowSystem.AddWindow(new DebugWindow());
+        NativeController = new NativeController(Svc.PluginInterface);
+
+        AddonObserver = new();
+        TaskManager = new();
+
+        Svc.Framework.RunOnFrameworkThread(InitializeTweaks);
+        C.EnabledTweaks.CollectionChanged += OnChange;
     }
 
-    private void Initialize()
+    public static void OnChange(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        ECommonsMain.Init(pi, P, ECommons.Module.DalamudReflector, ECommons.Module.ObjectFunctions);
-
-        Ws = new();
-        MainWindow = new();
-        DebugWindow = new();
-        Ws.AddWindow(MainWindow);
-        Ws.AddWindow(DebugWindow);
-        TaskManager = new();
-        Config = pi.GetPluginConfig() as Configuration ?? new Configuration();
-        Config.Initialize(Svc.PluginInterface);
-
-        Svc.Commands.AddHandler(CommandName, new CommandInfo(OnCommand)
+        foreach (var t in Tweaks)
         {
-            HelpMessage = $"Opens the {Name} menu.",
-            ShowInHelp = true
-        });
-
-        PandorasBoxIPC.Init();
-        QoLBarIPC.Init();
-
-        Svc.PluginInterface.UiBuilder.Draw += Ws.Draw;
-        Svc.PluginInterface.UiBuilder.OpenConfigUi += DrawConfigUI;
-        Common.Setup();
-        provider = new FeatureProvider(Assembly.GetExecutingAssembly());
-        provider.LoadFeatures();
-        FeatureProviders.Add(provider);
-#if DEBUG
-        MainWindow.IsOpen = !MainWindow.IsOpen;
-#endif
+            if (C.EnabledTweaks.Contains(t.InternalName) && !t.Enabled)
+                TryExecute(t.EnableInternal);
+            else if (!C.EnabledTweaks.Contains(t.InternalName) && t.Enabled)
+                t.DisableInternal();
+            EzConfig.Save();
+        }
     }
 
     public void Dispose()
     {
-        Svc.Commands.RemoveHandler(CommandName);
-        foreach (var f in Features.Where(x => x is not null && x.Enabled))
+        foreach (var tweak in Tweaks)
         {
-            f.Disable();
+            Svc.Log.Debug($"Disposing {tweak.InternalName}");
+            TryExecute(tweak.DisposeInternal);
         }
-
-        provider.UnloadFeatures();
-
-        PandorasBoxIPC.Dispose();
-        QoLBarIPC.Dispose();
-
-        Svc.PluginInterface.UiBuilder.Draw -= Ws.Draw;
-        Svc.PluginInterface.UiBuilder.OpenConfigUi -= DrawConfigUI;
-        Ws.RemoveAllWindows();
-        MainWindow = null;
-        DebugWindow = null;
-        Ws = null;
+        C.EnabledTweaks.CollectionChanged -= OnChange;
+        AddonObserver.Dispose();
         ECommonsMain.Dispose();
-        FeatureProviders.Clear();
-        Common.Shutdown();
-        P = null;
     }
 
     private void OnCommand(string command, string args)
     {
-        if (args is "debug" or "d" && Config.showDebugFeatures)
-        {
-            DebugWindow.IsOpen = !DebugWindow.IsOpen;
-            return;
-        }
-        MainWindow.IsOpen = !MainWindow.IsOpen;
+        if (args.StartsWith("d"))
+            EzConfigGui.WindowSystem.Windows.First(w => w is DebugWindow).IsOpen ^= true;
+        else
+            EzConfigGui.Window.IsOpen = !EzConfigGui.Window.IsOpen;
     }
 
-    public void DrawConfigUI()
+    private void InitializeTweaks()
     {
-        MainWindow.IsOpen = !MainWindow.IsOpen;
-
-        if (Svc.PluginInterface.IsDevMenuOpen && (Svc.PluginInterface.IsDev || Config.showDebugFeatures))
+        foreach (var tweakType in GetType().Assembly.GetTypes().Where(type => type.Namespace == "Automaton.Features" && type.GetCustomAttribute<TweakAttribute>() != null))
         {
-            if (ImGui.BeginMainMenuBar())
-            {
-                if (ImGui.MenuItem(Name))
-                {
-                    if (ImGui.GetIO().KeyShift)
-                    {
-                        DebugWindow.IsOpen = !DebugWindow.IsOpen;
-                    }
-                    else
-                    {
-                        MainWindow.IsOpen = !MainWindow.IsOpen;
-                    }
-                }
-                ImGui.EndMainMenuBar();
-            }
+            Svc.Log.Verbose($"Initializing {tweakType.Name}");
+            TryExecute(() => Tweaks.Add((Tweak)Activator.CreateInstance(tweakType)!));
+        }
+
+        foreach (var tweak in Tweaks)
+        {
+            if (!Config.EnabledTweaks.Contains(tweak.InternalName))
+                continue;
+
+            TryExecute(tweak.EnableInternal);
         }
     }
 }
