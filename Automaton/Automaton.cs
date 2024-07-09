@@ -91,6 +91,9 @@ public class Automaton : IDalamudPlugin
             if (!Config.EnabledTweaks.Contains(tweak.InternalName))
                 continue;
 
+            if (Config.EnabledTweaks.Contains(tweak.InternalName) && tweak.IsDebug && !Config.ShowDebug)
+                Config.EnabledTweaks.Remove(tweak.InternalName);
+
             TryExecute(tweak.EnableInternal);
         }
     }

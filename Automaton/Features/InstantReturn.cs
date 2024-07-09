@@ -8,7 +8,7 @@ namespace Automaton.Features;
 public unsafe class InstantReturn : Tweak
 {
     public override string Name => "Return Bypass";
-    public override string Description => "Bypass return cast time and cool down.";
+    public override string Description => "Bypass return cast time and cool down. If this does not work for you please enable /directreturn in Commands instead.";
 
     private delegate byte AgentReturnReceiveEventDelegate(AgentInterface* agent);
     [EzHook("E8 ?? ?? ?? ?? 41 8D 5E 0D", false)]

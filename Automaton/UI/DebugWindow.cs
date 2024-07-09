@@ -2,6 +2,7 @@ using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.Text;
 using Dalamud.Interface.Windowing;
 using ImGuiNET;
+using Lumina.Excel.GeneratedSheets;
 
 namespace Automaton.UI;
 
@@ -23,9 +24,9 @@ internal class DebugWindow : Window
 
     public unsafe override void Draw()
     {
-        foreach (var o in Svc.Objects.Where(o => o is IPlayerCharacter))
+        foreach (var o in Svc.Objects.Where(o => o is IPlayerCharacter).OrderBy(o => o.YalmDistanceX))
         {
-            ImGui.TextUnformatted($"{o.Name}: {o.GameObjectId}//{o.EntityId}//{o.DataId}////{o.TargetObjectId}");
+            ImGui.TextUnformatted($"{o.Name}: y:{o.YalmDistanceX} d:{Player.Object.Distance(o)} p:{Objects.InParty(o)} m:{o.Character()->Mount.MountId} seat:{GetRow<Mount>(o.Character()->Mount.MountId)!.ExtraSeats}");
         }
         foreach (var icon in Enum.GetValues<SeIconChar>())
         {

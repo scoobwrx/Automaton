@@ -79,12 +79,7 @@ public class EnhancedTargeting : Tweak<EnhancedTargetingConfiguration>
         .OrderBy(Player.Object.Distance);
 
     private bool MeetsCriteria(DGameObject obj)
-        => (Config.HighlightParty || !InParty(obj))
-        && (Config.HighlightAlliance || !InAlliance(obj))
-        && (Config.HighlightInCombat || !InCombat(obj));
-
-    private static byte GetStatus(DGameObject actor) => Marshal.ReadByte(actor.Address + 0x1980);
-    private static bool InCombat(DGameObject actor) => (GetStatus(actor) & 2) > 0;
-    private static bool InParty(DGameObject actor) => (GetStatus(actor) & 16) > 0;
-    private static bool InAlliance(DGameObject actor) => (GetStatus(actor) & 32) > 0;
+        => (Config.HighlightParty || !Objects.InParty(obj))
+        && (Config.HighlightAlliance || !Objects.InAlliance(obj))
+        && (Config.HighlightInCombat || !Objects.InCombat(obj));
 }

@@ -41,7 +41,7 @@ public class HuntRelayHelperConfiguration
 public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
 {
     public override string Name => "Hunt Relay Helper";
-    public override string Description => "";
+    public override string Description => "Appends a clickable icon to messages with a MapLinkPayload to relay them to other channels.";
 
     private DalamudLinkPayload RelayLinkPayload = null!;
 
@@ -57,9 +57,10 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
         Svc.PluginInterface.RemoveChatLinkHandler(0);
     }
 
-    private bool dryrun;
     public override void DrawConfig()
     {
+        base.DrawConfig();
+
         foreach (var channel in Config.Channels.ToList())
         {
             var i = Config.Channels.IndexOf(channel);
@@ -68,7 +69,6 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
                 Config.Channels[i] = (Config.Channels[i].Channel, Config.Channels[i].Command, Config.Channels[i].IsLocal, tmp.Enabled);
         }
 
-        ImGui.Checkbox("dry run", ref dryrun);
         ImGuiX.Checkbox("Only send local hunts to local channels", ref Config.OnlySendLocalHuntsToLocalChannels);
     }
 
@@ -76,13 +76,13 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
     {
         var maplink = message.Payloads.FirstOrDefault(x => x is MapLinkPayload, null);
         if (maplink is null) return;
-        foreach (var p in message.Payloads)
-            Svc.Log.Info($"{p}//{p.Type}//{p.Dirty}");
+
         try
         {
             if (maplink is MapLinkPayload mlp)
             {
                 var (world, instance) = DetectWorldAndInstance(message, Player.Object.CurrentWorld.GameData);
+                Svc.Log.Verbose($"Detected world {world} and instance {instance} in message with {nameof(MapLinkPayload)}. Appending {nameof(RelayLinkPayload)}");
                 message.Payloads.AddRange([RelayLinkPayload, new IconPayload(BitmapFontIcon.NotoriousMonster), new RelayPayload(mlp, world.RowId, instance), RawPayload.LinkTerminator]);
             }
         }
@@ -95,30 +95,31 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
     private void HandleRelayLink(uint _, SeString link)
     {
         var payload = link.Payloads.OfType<RawPayload>().Select(RelayPayload.Parse).FirstOrDefault(x => x != default);
-        if (payload == default) return;
+        if (payload == default) { Svc.Log.Info($"Failed to parse {nameof(RelayPayload)}"); return; }
         foreach (var (channel, command, islocal, enabled) in Config.Channels)
         {
             if (!enabled) continue;
-            // add a check to see if the player is in novice network before sending
+            // TODO: add a check to see if the player is in novice network before sending
             if (channel.GetAttribute<XivChatTypeInfoAttribute>()!.FancyName.StartsWith("Linkshell") && Player.CurrentWorld != Player.HomeWorld) continue;
             if (islocal && Player.Object.CurrentWorld.GameData != payload.World && Config.OnlySendLocalHuntsToLocalChannels) continue;
 
             var x = payload.MapLink.Map.Id;
-            var sb = new SeStringBuilder().AddText($"「{payload.World!.Name}」S  ").Append(SeString.CreateMapLink(payload.MapLink.TerritoryType.RowId, payload.MapLink.Map.RowId, payload.MapLink.RawX, payload.MapLink.RawY));
-
-            if (dryrun)
-                Svc.Log.Info($"Dry run to channel {channel}: {sb.BuiltString}");
+            var sb = new SeStringBuilder().AddText($"「{payload.World!.Name}」S  ");
+            if (payload.Instance != default)
+                sb.Append(SeString.CreateMapLinkWithInstance(payload.MapLink.TerritoryType.RowId, payload.MapLink.Map.RowId, (int?)payload.Instance, payload.MapLink.RawX, payload.MapLink.RawY));
             else
-                Chat.Instance.SendMessageUnsafe(Encoding.UTF8.GetBytes($"/{command} {sb.BuiltString}"));
+                sb.Append(SeString.CreateMapLink(payload.MapLink.TerritoryType.RowId, payload.MapLink.Map.RowId, payload.MapLink.RawX, payload.MapLink.RawY));
+
+            TaskManager.EnqueueDelay(500);
+            TaskManager.Enqueue(() => Chat.Instance.SendMessageUnsafe(Encoding.UTF8.GetBytes($"/{command} {sb.BuiltString}")));
         }
     }
 
     private (World, uint) DetectWorldAndInstance(SeString message, World? currentWorld)
     {
         var text = string.Join(" ", message.Payloads.OfType<TextPayload>().Select(x => x.Text));
-        int heuristicInstance = 0;
-        int mapInstance = 0;
-        // get the first textpayload that follows a maplinkpayload
+        var heuristicInstance = 0;
+        var mapInstance = text.Select(ReplaceSeIconIntanceNumber).OfType<int>().FirstOrDefault(0);
 
         // trim texts within MapLinkPayload
         const string linkPattern = ".*?\\)";
@@ -127,13 +128,6 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
         // replace Boxed letters with alphabets
         text = string.Join(string.Empty, text.Select(ReplaceSeIconChar));
 
-        var textPayloadAfterMapLink = message.Payloads.SkipWhile(p => p is not MapLinkPayload).Skip(1).OfType<TextPayload>().FirstOrDefault(defaultValue: null);
-        if (textPayloadAfterMapLink != null)
-            mapInstance = ReplaceSeIconCharNumber(textPayloadAfterMapLink.Text!.Trim().First());
-        if (int.TryParse(text.Select(ReplaceSeIconCharNumber).First().ToString(), out var num))
-            heuristicInstance = num;
-
-        Svc.Log.Info($"found instance {heuristicInstance} that might be from a player. Map instance is {mapInstance}");
         return (FindRow<World>(x => x!.IsPublic && text.Contains(x.Name.RawString, StringComparison.OrdinalIgnoreCase)) ?? currentWorld!, heuristicInstance != 0 ? (uint)heuristicInstance : (uint)mapInstance);
     }
 
@@ -171,37 +165,45 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
         };
     }
 
+    private int? ReplaceSeIconIntanceNumber(char c)
+    {
+        return c switch
+        {
+            (char)SeIconChar.Instance1 => 1,
+            (char)SeIconChar.Instance2 => 2,
+            (char)SeIconChar.Instance3 => 3,
+            (char)SeIconChar.Instance4 => 4,
+            (char)SeIconChar.Instance5 => 5,
+            (char)SeIconChar.Instance6 => 6,
+            (char)SeIconChar.Instance7 => 7,
+            (char)SeIconChar.Instance8 => 8,
+            (char)SeIconChar.Instance9 => 9,
+            _ => null
+        };
+    }
+
     private int ReplaceSeIconCharNumber(char c)
     {
         return c switch
         {
             (char)SeIconChar.Number1 => 1,
             (char)SeIconChar.BoxedNumber1 => 1,
-            (char)SeIconChar.Instance1 => 1,
             (char)SeIconChar.Number2 => 2,
             (char)SeIconChar.BoxedNumber2 => 2,
-            (char)SeIconChar.Instance2 => 2,
             (char)SeIconChar.Number3 => 3,
             (char)SeIconChar.BoxedNumber3 => 3,
-            (char)SeIconChar.Instance3 => 3,
             (char)SeIconChar.Number4 => 4,
             (char)SeIconChar.BoxedNumber4 => 4,
-            (char)SeIconChar.Instance4 => 4,
             (char)SeIconChar.Number5 => 5,
             (char)SeIconChar.BoxedNumber5 => 5,
-            (char)SeIconChar.Instance5 => 5,
             (char)SeIconChar.Number6 => 6,
             (char)SeIconChar.BoxedNumber6 => 6,
-            (char)SeIconChar.Instance6 => 6,
             (char)SeIconChar.Number7 => 7,
             (char)SeIconChar.BoxedNumber7 => 7,
-            (char)SeIconChar.Instance7 => 7,
             (char)SeIconChar.Number8 => 8,
             (char)SeIconChar.BoxedNumber8 => 8,
-            (char)SeIconChar.Instance8 => 8,
             (char)SeIconChar.Number9 => 9,
             (char)SeIconChar.BoxedNumber9 => 9,
-            (char)SeIconChar.Instance9 => 9,
             _ => c,
         };
     }

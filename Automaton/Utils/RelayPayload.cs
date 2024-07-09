@@ -6,7 +6,7 @@ using System.IO;
 namespace Automaton.Utils;
 public sealed class RelayPayload(MapLinkPayload mapLink, uint? worldId, uint? instance) : DalamudLinkPayload
 {
-    private const byte EmbeddedInfoTypeByte = (byte)(EmbeddedInfoType.DalamudLink + 1);
+    private const byte EmbeddedInfoTypeByte = (byte)(EmbeddedInfoType.DalamudLink + 2);
 
     public MapLinkPayload MapLink => mapLink;
     public World? World => worldId.HasValue ? GetRow<World>(worldId.Value) : default;

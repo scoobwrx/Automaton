@@ -1,4 +1,3 @@
-using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using FFXIVClientStructs.STD;
 using System.Drawing;
@@ -38,14 +37,6 @@ public static partial class Extensions
     }
 
     public static uint ToHex(this uint i) => uint.Parse(i.ToString("X"), NumberStyles.HexNumber);
-
-    public static unsafe BattleChara* BattleChara(this DGameObject obj) => (BattleChara*)obj.Address;
-    public static unsafe Character* Character(this DGameObject obj) => (Character*)obj.Address;
-
-    public static unsafe BattleChara* BattleChara(this CSGameObject obj) => (BattleChara*)&obj;
-    public static unsafe Character* Character(this CSGameObject obj) => (Character*)&obj;
-
-    public static bool IsTargetingPlayer(this DGameObject obj) => obj.TargetObjectId == Player.Object.GameObjectId;
 
     public static int Ms(this int i) => i * 1000;
 
