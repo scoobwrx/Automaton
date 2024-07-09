@@ -10,7 +10,8 @@ public class Inventory
         InventoryType.Inventory1,
         InventoryType.Inventory2,
         InventoryType.Inventory3,
-        InventoryType.Inventory4
+        InventoryType.Inventory4,
+        InventoryType.KeyItems,
     ];
 
     public static readonly InventoryType[] MainOffHand =

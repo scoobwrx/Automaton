@@ -52,7 +52,7 @@ public class Automaton : IDalamudPlugin
         {
             if (C.EnabledTweaks.Contains(t.InternalName) && !t.Enabled)
                 TryExecute(t.EnableInternal);
-            else if (!C.EnabledTweaks.Contains(t.InternalName) && t.Enabled)
+            else if (!C.EnabledTweaks.Contains(t.InternalName) && t.Enabled || t.Enabled && t.IsDebug && !C.ShowDebug)
                 t.DisableInternal();
             EzConfig.Save();
         }

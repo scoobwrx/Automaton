@@ -30,6 +30,12 @@ public class CommandsConfiguration
 
     [BoolConfig(Label = "/lowerquality")]
     public bool EnableLowerQuality = false;
+
+    [BoolConfig(Label = "/item")]
+    public bool EnableUseItem = false;
+
+    [BoolConfig(Label = "/directreturn")]
+    public bool EnableDirectReturn = false;
 }
 
 [Tweak]
@@ -147,6 +153,29 @@ public partial class Commands : Tweak<CommandsConfiguration>
                 AgentInventoryContext.Instance()->LowerItemQuality(item, item->Container, item->Slot, 0);
             }
         }
+    }
+    #endregion
+
+    #region Use Item
+    [CommandHandler("/item", "Use an item by ID", nameof(Config.EnableUseItem))]
+    internal unsafe void OnCommandUseItem(string command, string arguments)
+    {
+        if (!uint.TryParse(arguments, out var itemId)) return;
+        var agent = AgentInventoryContext.Instance();
+        if (agent == null) return;
+
+        var item = Inventory.GetItemInInventory(itemId, Inventory.PlayerInventory);
+        agent->UseItem(item->ItemId);
+    }
+    #endregion
+
+    #region Direct Return
+    [CommandHandler("/directreturn", "Calls the return function directly. Use this over the bypass if the other didn't work for you.", nameof(Config.EnableDirectReturn))]
+    internal unsafe void OnCommandDirectReturn(string command, string arguments)
+    {
+        var agent = ActionManager.Instance();
+        if (agent == null) return;
+        agent->UseActionLocation(ActionType.GeneralAction, 8);
     }
     #endregion
 }
