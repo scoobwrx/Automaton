@@ -31,7 +31,7 @@ internal class FlightBypass : Tweak
         {
             if (GetRow<TerritoryType>(Player.Territory)?.Unknown32 > 0
                 && !PlayerState.Instance()->IsAetherCurrentZoneComplete(Svc.ClientState.TerritoryType)
-                && !(Svc.Condition[ConditionFlag.Mounted] || Svc.Condition[ConditionFlag.Mounted2])) // don't bypass zones where no one can fly (idyllshire, rhalgr's)
+                && Svc.Condition[ConditionFlag.Mounted]) // don't bypass zones where no one can fly (idyllshire, rhalgr's)
                 return 0;
         }
         catch (Exception e)
