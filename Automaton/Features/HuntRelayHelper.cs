@@ -35,6 +35,7 @@ public class HuntRelayHelperConfiguration
         ];
 
     [BoolConfig] public bool OnlySendLocalHuntsToLocalChannels = true;
+    // add a setting to not assume blank worlds are your own
 }
 
 [Tweak(disabled: true)]

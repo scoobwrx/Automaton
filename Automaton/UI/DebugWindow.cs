@@ -1,6 +1,9 @@
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.Text;
 using Dalamud.Interface.Windowing;
+using ECommons.UIHelpers.AddonMasterImplementations;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
+using FFXIVClientStructs.FFXIV.Component.GUI;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
 
@@ -24,13 +27,9 @@ internal class DebugWindow : Window
 
     public unsafe override void Draw()
     {
-        foreach (var o in Svc.Objects.Where(o => o is IPlayerCharacter).OrderBy(o => o.YalmDistanceX))
-        {
-            ImGui.TextUnformatted($"{o.Name}: y:{o.YalmDistanceX} d:{Player.Object.Distance(o)} p:{Objects.InParty(o)} m:{o.Character()->Mount.MountId} seat:{GetRow<Mount>(o.Character()->Mount.MountId)!.ExtraSeats}");
-        }
-        foreach (var icon in Enum.GetValues<SeIconChar>())
-        {
-            ImGui.TextUnformatted($"{icon.ToIconChar()} - {icon}");
-        }
+        var agent = AgentRevive.Instance();
+        ImGui.TextUnformatted($"{Player.Object.IsDead}");
+        if (agent == null) return;
+        ImGui.TextUnformatted($"{agent->ReviveState} {agent->ResurrectionTimeLeft} {agent->ResurrectingPlayerId} {agent->ResurrectingPlayerName}");
     }
 }
