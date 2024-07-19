@@ -5,6 +5,7 @@ using Dalamud.Game.Text.SeStringHandling.Payloads;
 using ECommons;
 using ECommons.GameFunctions;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using Lumina.Excel.GeneratedSheets;
 
 namespace Automaton.Features;
 
@@ -111,7 +112,7 @@ public unsafe class AutoFollow : Tweak<AutoFollowConfiguration>
                 return;
             }
 
-            if (!(master.Character()->IsMounted() && Svc.Condition[ConditionFlag.Mounted]))
+            if (!(master.Character()->IsMounted() && Svc.Condition[ConditionFlag.Mounted]) && PossibleToMount())
             {
                 movement.Enabled = false;
                 master.BattleChara()->GetStatusManager()->RemoveStatus(10);
@@ -129,6 +130,16 @@ public unsafe class AutoFollow : Tweak<AutoFollowConfiguration>
     }
 
     private static bool CanMount() => !Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.Mounting] && !Svc.Condition[ConditionFlag.InCombat] && !Svc.Condition[ConditionFlag.Casting];
+
+    private static bool PossibleToMount()
+    {
+        if (GetRow<TerritoryType>(Player.Territory)?.Unknown32 == 0)
+        {
+            return false;
+        }
+        return true;
+    }
+
 
     private void OnChatMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
     {
