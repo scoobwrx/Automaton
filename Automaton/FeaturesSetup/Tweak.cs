@@ -18,7 +18,6 @@ public abstract partial class Tweak : ITweak
         IncompatibilityWarnings = CachedType.GetCustomAttributes<IncompatibilityWarningAttribute>().ToArray();
         Outdated = CachedType.GetCustomAttribute<TweakAttribute>()?.Outdated ?? false;
         Disabled = CachedType.GetCustomAttribute<TweakAttribute>()?.Disabled ?? false;
-        IsDebug = CachedType.GetCustomAttribute<TweakAttribute>()?.Debug ?? false;
 
         TaskManager = new();
         Navmesh = new();
