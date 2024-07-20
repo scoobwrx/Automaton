@@ -4,17 +4,18 @@ using Lumina.Excel.GeneratedSheets;
 using System.IO;
 
 namespace Automaton.Utils;
-public sealed class RelayPayload(MapLinkPayload mapLink, uint? worldId, uint? instance) : DalamudLinkPayload
+public sealed class RelayPayload(MapLinkPayload mapLink, uint? worldId, uint? instance, uint? type) : DalamudLinkPayload
 {
-    private const byte EmbeddedInfoTypeByte = (byte)(EmbeddedInfoType.DalamudLink + 2);
+    private const byte EmbeddedInfoTypeByte = (byte)(EmbeddedInfoType.DalamudLink + 3);
 
     public MapLinkPayload MapLink => mapLink;
     public World? World => worldId.HasValue ? GetRow<World>(worldId.Value) : default;
     public uint? Instance => instance ?? default;
+    public uint? RelayType => type ?? default;
 
     public override PayloadType Type => PayloadType.Unknown;
 
-    private RelayPayload() : this(new MapLinkPayload(0, 0, 0, 0), 0, 0) { }
+    private RelayPayload() : this(new MapLinkPayload(0, 0, 0, 0), 0, 0, 0) { }
 
     protected override byte[] EncodeImpl()
     {
@@ -22,6 +23,7 @@ public sealed class RelayPayload(MapLinkPayload mapLink, uint? worldId, uint? in
         data.AddRange(mapLink.Encode());
         data.AddRange(MakeInteger(worldId ?? 0));
         data.AddRange(MakeInteger(instance ?? 0));
+        data.AddRange(MakeInteger(type ?? 0));
 
         var length = 2 + (byte)data.Count;
         return [
@@ -39,9 +41,10 @@ public sealed class RelayPayload(MapLinkPayload mapLink, uint? worldId, uint? in
         mapLink = (MapLinkPayload)Decode(reader);
         worldId = GetInteger(reader);
         instance = GetInteger(reader);
+        type = GetInteger(reader);
     }
 
-    public override string ToString() => $"{nameof(RelayPayload)}[{mapLink}, {worldId}, {instance}]";
+    public override string ToString() => $"{nameof(RelayPayload)}[{mapLink}, {worldId}, {instance}, {type}]";
 
     public RawPayload ToRawPayload() => new(EncodeImpl());
 

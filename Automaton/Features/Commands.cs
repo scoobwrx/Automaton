@@ -130,6 +130,32 @@ public partial class Commands : Tweak<CommandsConfiguration>
     }
     #endregion
 
+    #region Desynth
+    private unsafe delegate void PurifyItemDelegate(int a1);
+    private PurifyItemDelegate _purifyItem = null!;
+
+    [CommandHandler("/purify", "Purify an item by ID", nameof(Config.EnableDesynth))]
+    internal unsafe void OnCommmandPurify(string command, string arguments)
+    {
+        if (!uint.TryParse(arguments, out var itemId)) return;
+        var item_loc = Inventory.GetItemLocationInInventory(itemId, Inventory.Equippable);
+        if (item_loc == null)
+        {
+            DuoLog.Error($"Failed to find item {GetRow<Item>(itemId)?.Name} (ID: {itemId}) in inventory");
+            return;
+        }
+
+        var item = InventoryManager.Instance()->GetInventoryContainer(item_loc.Value.inv)->GetInventorySlot(item_loc.Value.slot);
+        //if (GetRow<Item>(item->ItemId)!.Desynth == 0)
+        //{
+        //    DuoLog.Error($"Item {GetRow<Item>(item->ItemId)?.Name} (ID: {item->ItemId}) is not desynthable");
+        //    return;
+        //}
+
+        _purifyItem = Marshal.GetDelegateForFunctionPointer<PurifyItemDelegate>(Svc.SigScanner.ScanText("E8 ?? ?? ?? ?? EB 05 E8 ?? ?? ?? ?? 48 8D 4F 50 E8 ?? ?? ?? ?? 66 89 AF ?? ?? ?? ?? 48 8D 97 ?? ?? ?? ?? 48 8B CF E8 ?? ?? ?? ?? 48 8B 6C 24 ??"));
+    }
+    #endregion
+
     #region Lower Quality
     [CommandHandler("/lowerquality", "Lower the quality of an item by ID, or pass all", nameof(Config.EnableLowerQuality))]
     internal unsafe void OnCommmandLowerQuality(string command, string arguments)
