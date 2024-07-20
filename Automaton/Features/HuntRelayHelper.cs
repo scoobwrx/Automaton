@@ -107,7 +107,7 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
 
                 ImGui.SameLine();
                 var tmpL = c.Value;
-                if (ImGui.Checkbox($"##{c.Value.Channel}{nameof(c.Value.IsLocal)}", ref tmpE.IsLocal))
+                if (ImGui.Checkbox($"##{c.Value.Channel}{nameof(c.Value.IsLocal)}", ref tmpL.IsLocal))
                     Config.Channels[c.Index] = (Config.Channels[c.Index].Channel, Config.Channels[c.Index].Command, tmpL.IsLocal, Config.Channels[c.Index].Enabled);
                 ImGuiComponents.HelpMarker("Set this channel to be considered a \"local\" channel.");
             }
@@ -118,17 +118,14 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
         ImGuiComponents.HelpMarker("If a hunt is detected as being off your home world, it will only be relayed to non-local channels.");
         ImGui.Checkbox("Assume blank worlds are local", ref Config.AssumeBlankWorldsAreLocal);
         ImGuiComponents.HelpMarker("If the world is failed to be detected, assume it's meant for the local world.");
-        if (Config.AssumeBlankWorldsAreLocal)
+        ImGui.Indent();
+        foreach (var l in Enum.GetValues<Locality>())
         {
-            ImGui.Indent();
-            foreach (var l in Enum.GetValues<Locality>())
-            {
-                if (ImGui.RadioButton($"{l.ToString().SplitWords()}", Config.AssumedLocality == l))
-                    Config.AssumedLocality = l;
-                ImGui.SameLine();
-            }
-            ImGui.Unindent();
+            if (ImGui.RadioButton($"{l.ToString().SplitWords()}", Config.AssumedLocality == l))
+                Config.AssumedLocality = l;
+            ImGui.SameLine();
         }
+        ImGui.Unindent();
 
         ImGui.NewLine();
         ImGuiX.DrawSection("Chat Message Pattern");
