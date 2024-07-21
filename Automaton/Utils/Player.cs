@@ -43,7 +43,7 @@ public unsafe static class Player
     public static uint Territory => Svc.ClientState.TerritoryType;
     public static bool InDuty => GameMain.Instance()->CurrentContentFinderConditionId != 0;
     public static bool HasPenalty => FFXIVClientStructs.FFXIV.Client.Game.UI.InstanceContent.Instance()->GetPenaltyRemainingInMinutes(0) > 0;
-    public static Vector3 Position { get => Object.Position; set { _setPosition = Marshal.GetDelegateForFunctionPointer<SetPosition>(Svc.SigScanner.ScanText("E8 ?? ?? ?? ?? 4C 8B 65 67")); _setPosition(value.X, value.Y, value.Z); } }
+    public static Vector3 Position { get => Object.Position; set => GameObject->SetPosition(value.X, value.Y, value.Z); }
     public static float Speed { get => Controller->MoveControllerWalk.BaseMovementSpeed; set => Debug.SetSpeed(6 * value); }
     public static bool IsMoving => AgentMap.Instance()->IsPlayerMoving == 1;
     public static DGameObject Target { get => Svc.Targets.Target; set => Svc.Targets.Target = value; }

@@ -119,15 +119,15 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
         ImGui.Checkbox("Assume blank worlds are local", ref Config.AssumeBlankWorldsAreLocal);
         ImGuiComponents.HelpMarker("If the world is failed to be detected, assume it's meant for the local world.");
         ImGui.Indent();
-        foreach (var l in Enum.GetValues<Locality>())
+        foreach (var l in Enum.GetValues<Locality>().Select((x, i) => new { Value = x, Index = i }))
         {
-            if (ImGui.RadioButton($"{l.ToString().SplitWords()}", Config.AssumedLocality == l))
-                Config.AssumedLocality = l;
-            ImGui.SameLine();
+            if (ImGui.RadioButton($"{l.Value.ToString().SplitWords()}", Config.AssumedLocality == l.Value))
+                Config.AssumedLocality = l.Value;
+            if (l.Index < Enum.GetValues<Locality>().Length - 1)
+                ImGui.SameLine();
         }
         ImGui.Unindent();
 
-        ImGui.NewLine();
         ImGuiX.DrawSection("Chat Message Pattern");
         ImGui.InputText($"##{nameof(Config.ChatMessagePattern)}", ref Config.ChatMessagePattern, 64);
         ImGuiComponents.HelpMarker("Available tags: <world>, <type>, <flag>");
@@ -200,7 +200,23 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
     private void HandleRelayLink(uint _, SeString link)
     {
         var payload = link.Payloads.OfType<RawPayload>().Select(RelayPayload.Parse).FirstOrDefault(x => x != default);
-        if (payload == default) { Svc.Log.Info($"Failed to parse {nameof(RelayPayload)}"); return; }
+        if (payload == default) { Svc.Log.Error($"Failed to parse {nameof(RelayPayload)}"); return; }
+        var relay = BuildRelayMessage(payload.MapLink, payload.World, payload.Instance, payload.RelayType);
+        foreach (var (channel, command, islocal, enabled) in Config.Channels)
+        {
+            if (!enabled) continue;
+            // TODO: add a check to see if the player is in novice network before sending
+            // TODO: add a crystalline conflict check since non-premade messages can't be sent to any channel then
+            if (channel.GetAttribute<XivChatTypeInfoAttribute>()!.FancyName.StartsWith("Linkshell") && Player.CurrentWorld != Player.HomeWorld) continue;
+            if (islocal && Player.Object.CurrentWorld.GameData != payload.World && Config.OnlySendLocalHuntsToLocalChannels) continue;
+
+            TaskManager.EnqueueDelay(500);
+            TaskManager.Enqueue(() => Chat.Instance.SendMessageUnsafe(Encoding.UTF8.GetBytes($"/{command} {relay.BuiltString}")));
+        }
+    }
+
+    private SeStringBuilder BuildRelayMessage(MapLinkPayload MapLink, World? World, uint? Instance, uint? RelayType)
+    {
         var pattern = "(?i)(<flag>|<world>|<type>)";
         var splitMsg = Regex.Split(Config.ChatMessagePattern, pattern);
         var sb = new SeStringBuilder();
@@ -209,24 +225,24 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
             switch (s)
             {
                 case "<flag>":
-                    if (payload.Instance != default)
-                        sb.Append(SeString.CreateMapLinkWithInstance(payload.MapLink.TerritoryType.RowId, payload.MapLink.Map.RowId, (int?)payload.Instance, payload.MapLink.RawX, payload.MapLink.RawY));
+                    if (Instance != default)
+                        sb.Append(SeString.CreateMapLinkWithInstance(MapLink.TerritoryType.RowId, MapLink.Map.RowId, (int?)Instance, MapLink.RawX, MapLink.RawY));
                     else
-                        sb.Append(SeString.CreateMapLink(payload.MapLink.TerritoryType.RowId, payload.MapLink.Map.RowId, payload.MapLink.RawX, payload.MapLink.RawY));
+                        sb.Append(SeString.CreateMapLink(MapLink.TerritoryType.RowId, MapLink.Map.RowId, MapLink.RawX, MapLink.RawY));
                     break;
                 case "<world>":
-                    sb.AddText(payload.World!.Name);
+                    sb.AddText(World!.Name);
                     break;
                 case "<type>":
-                    switch (payload.RelayType)
+                    switch (RelayType)
                     {
-                        case (uint?)RelayTypes.SRank:
+                        case (uint)RelayTypes.SRank:
                             sb.AddText(Config.Types[(int)RelayTypes.SRank].TypeFormat);
                             break;
-                        case (uint?)RelayTypes.Train:
+                        case (uint)RelayTypes.Train:
                             sb.AddText(Config.Types[(int)RelayTypes.Train].TypeFormat);
                             break;
-                        case (uint?)RelayTypes.FATE:
+                        case (uint)RelayTypes.FATE:
                             sb.AddText(Config.Types[(int)RelayTypes.FATE].TypeFormat);
                             break;
                     }
@@ -236,16 +252,7 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
                     break;
             }
         }
-        foreach (var (channel, command, islocal, enabled) in Config.Channels)
-        {
-            if (!enabled) continue;
-            // TODO: add a check to see if the player is in novice network before sending
-            if (channel.GetAttribute<XivChatTypeInfoAttribute>()!.FancyName.StartsWith("Linkshell") && Player.CurrentWorld != Player.HomeWorld) continue;
-            if (islocal && Player.Object.CurrentWorld.GameData != payload.World && Config.OnlySendLocalHuntsToLocalChannels) continue;
-
-            TaskManager.EnqueueDelay(500);
-            TaskManager.Enqueue(() => Chat.Instance.SendMessageUnsafe(Encoding.UTF8.GetBytes($"/{command} {sb.BuiltString}")));
-        }
+        return sb;
     }
 
     private (World?, uint, uint) DetectWorldInstanceRelayType(SeString message)
