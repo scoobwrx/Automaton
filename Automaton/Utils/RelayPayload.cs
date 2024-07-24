@@ -4,26 +4,28 @@ using Lumina.Excel.GeneratedSheets;
 using System.IO;
 
 namespace Automaton.Utils;
-public sealed class RelayPayload(MapLinkPayload mapLink, uint? worldId, uint? instance, uint? type) : DalamudLinkPayload
+public sealed class RelayPayload(MapLinkPayload mapLink, uint worldId, uint? instance, uint relayType, uint originChannel) : DalamudLinkPayload
 {
-    private const byte EmbeddedInfoTypeByte = (byte)(EmbeddedInfoType.DalamudLink + 3);
+    private const byte EmbeddedInfoTypeByte = (byte)(EmbeddedInfoType.DalamudLink + 4);
 
     public MapLinkPayload MapLink => mapLink;
-    public World? World => worldId.HasValue ? GetRow<World>(worldId.Value) : default;
+    public World World => GetRow<World>(worldId)!;
     public uint? Instance => instance ?? default;
-    public uint? RelayType => type ?? default;
+    public uint RelayType => relayType;
+    public uint OriginChannel => originChannel;
 
     public override PayloadType Type => PayloadType.Unknown;
 
-    private RelayPayload() : this(new MapLinkPayload(0, 0, 0, 0), 0, 0, 0) { }
+    private RelayPayload() : this(new MapLinkPayload(0, 0, 0, 0), 0, 0, 0, 0) { }
 
     protected override byte[] EncodeImpl()
     {
         var data = new List<byte>();
         data.AddRange(mapLink.Encode());
-        data.AddRange(MakeInteger(worldId ?? 0));
+        data.AddRange(MakeInteger(worldId));
         data.AddRange(MakeInteger(instance ?? 0));
-        data.AddRange(MakeInteger(type ?? 0));
+        data.AddRange(MakeInteger(relayType));
+        data.AddRange(MakeInteger(originChannel));
 
         var length = 2 + (byte)data.Count;
         return [
@@ -41,10 +43,11 @@ public sealed class RelayPayload(MapLinkPayload mapLink, uint? worldId, uint? in
         mapLink = (MapLinkPayload)Decode(reader);
         worldId = GetInteger(reader);
         instance = GetInteger(reader);
-        type = GetInteger(reader);
+        relayType = GetInteger(reader);
+        originChannel = GetInteger(reader);
     }
 
-    public override string ToString() => $"{nameof(RelayPayload)}[{mapLink}, {worldId}, {instance}, {type}]";
+    public override string ToString() => $"{nameof(RelayPayload)}[{mapLink}, {worldId}, {instance}, {relayType}, {originChannel}]";
 
     public RawPayload ToRawPayload() => new(EncodeImpl());
 

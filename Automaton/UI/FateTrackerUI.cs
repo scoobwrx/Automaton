@@ -54,7 +54,7 @@ internal class FateTrackerUI : Window
         if (!table)
             return;
 
-        foreach (var fate in Svc.Fates.OrderBy(x => Vector3.DistanceSquared(x.Position, Player.Position)))
+        foreach (var fate in Svc.Fates.OrderBy(x => Vector3.Distance(x.Position, Player.Position)))
         {
             ImGui.TableNextRow();
             ImGui.TableNextColumn();

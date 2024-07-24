@@ -40,12 +40,15 @@ public class HuntRelayHelperConfiguration
 
     [BoolConfig] public bool OnlySendLocalHuntsToLocalChannels = true;
     [BoolConfig] public bool AssumeBlankWorldsAreLocal = false;
+    [BoolConfig] public bool DontRepeatRelays = true;
+    [BoolConfig] public bool AllowPartialWorldMatches = false;
+    [BoolConfig] public bool DryRun = false;
     [StringConfig] public string ChatMessagePattern = "[<world>] <type> -> <flag>";
     [EnumConfig] public HuntRelayHelper.Locality AssumedLocality = HuntRelayHelper.Locality.PlayerHomeWorld;
 
     public List<(HuntRelayHelper.RelayTypes RelayType, string TypeFormat, string TypeHeuristics)> Types =
         [
-            (HuntRelayHelper.RelayTypes.SRank, "S Rank", @"s rank, (?:^|\W)[sS](?:$|\W)"),
+            (HuntRelayHelper.RelayTypes.SRank, "S Rank", @"s rank, rank s, /(?:^|\W)[sS](?:$|\W)/"),
             (HuntRelayHelper.RelayTypes.Train, "Train", @"train"),
             (HuntRelayHelper.RelayTypes.FATE, "FATE", @"boss, fate"),
         ];
@@ -114,10 +117,19 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
         }
 
         ImGuiX.DrawSection("Configuration");
+
+        ImGui.Checkbox("Don't repeat relays", ref Config.DontRepeatRelays);
+        ImGuiComponents.HelpMarker("Don't send relays to the channel in which you clicked the relay payload.");
+
+        ImGui.Checkbox("Allow partial world matching", ref Config.AllowPartialWorldMatches);
+        ImGuiComponents.HelpMarker("This will allow matching shorthands of worlds (e.g. \"behe\" -> Behemoth) but may result in false positives.");
+
         ImGui.Checkbox("Only send local hunts to local channels", ref Config.OnlySendLocalHuntsToLocalChannels);
         ImGuiComponents.HelpMarker("If a hunt is detected as being off your home world, it will only be relayed to non-local channels.");
+
         ImGui.Checkbox("Assume blank worlds are local", ref Config.AssumeBlankWorldsAreLocal);
         ImGuiComponents.HelpMarker("If the world is failed to be detected, assume it's meant for the local world.");
+
         ImGui.Indent();
         foreach (var l in Enum.GetValues<Locality>().Select((x, i) => new { Value = x, Index = i }))
         {
@@ -127,6 +139,9 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
                 ImGui.SameLine();
         }
         ImGui.Unindent();
+
+        ImGui.Checkbox("Dry run", ref Config.DryRun);
+        ImGuiComponents.HelpMarker("Enabling this will print the messages to chat without actually sending them to the server. This is just for testing.");
 
         ImGuiX.DrawSection("Chat Message Pattern");
         ImGui.InputText($"##{nameof(Config.ChatMessagePattern)}", ref Config.ChatMessagePattern, 64);
@@ -184,11 +199,11 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
                 }
                 if (world != null)
                 {
-                    Svc.Log.Verbose($"Detected world {world} and instance {instance} in message with {nameof(MapLinkPayload)}. Appending {nameof(RelayLinkPayload)}");
-                    message.Payloads.AddRange([RelayLinkPayload, new IconPayload(BitmapFontIcon.NotoriousMonster), new RelayPayload(mlp, world.RowId, instance, relayType), RawPayload.LinkTerminator]);
+                    Svc.Log.Verbose($"Detected world {world.Name} and instance {instance} in {nameof(MapLinkPayload)} message: {message}");
+                    message.Payloads.AddRange([RelayLinkPayload, new IconPayload(BitmapFontIcon.NotoriousMonster), new RelayPayload(mlp, world.RowId, instance, relayType, (uint)type), RawPayload.LinkTerminator]);
                 }
                 else
-                    Svc.Log.Info($"Failed to detect world in message with {nameof(MapLinkPayload)}");
+                    Svc.Log.Info($"Failed to detect world in {nameof(MapLinkPayload)} message: {message}");
             }
         }
         catch (Exception ex)
@@ -207,15 +222,21 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
             if (!enabled) continue;
             // TODO: add a check to see if the player is in novice network before sending
             // TODO: add a crystalline conflict check since non-premade messages can't be sent to any channel then
+            if ((XivChatType)payload.OriginChannel == channel && Config.DontRepeatRelays) continue;
             if (channel.GetAttribute<XivChatTypeInfoAttribute>()!.FancyName.StartsWith("Linkshell") && Player.CurrentWorld != Player.HomeWorld) continue;
             if (islocal && Player.Object.CurrentWorld.GameData != payload.World && Config.OnlySendLocalHuntsToLocalChannels) continue;
 
             TaskManager.EnqueueDelay(500);
-            TaskManager.Enqueue(() => Chat.Instance.SendMessageUnsafe(Encoding.UTF8.GetBytes($"/{command} {relay.BuiltString}")));
+#pragma warning disable CS0618 // Type or member is obsolete
+            if (Config.DryRun)
+                TaskManager.Enqueue(() => Svc.Chat.Print(new XivChatEntry() { Type = (XivChatType)payload.OriginChannel, Message = $"[DRY RUN] {relay.BuiltString}" }));
+            else
+                TaskManager.Enqueue(() => Chat.Instance.SendMessageUnsafe(Encoding.UTF8.GetBytes($"/{command} {relay.BuiltString}")));
+#pragma warning restore CS0618 // Type or member is obsolete
         }
     }
 
-    private SeStringBuilder BuildRelayMessage(MapLinkPayload MapLink, World? World, uint? Instance, uint? RelayType)
+    private SeStringBuilder BuildRelayMessage(MapLinkPayload MapLink, World World, uint? Instance, uint RelayType)
     {
         var pattern = "(?i)(<flag>|<world>|<type>)";
         var splitMsg = Regex.Split(Config.ChatMessagePattern, pattern);
@@ -231,7 +252,7 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
                         sb.Append(SeString.CreateMapLink(MapLink.TerritoryType.RowId, MapLink.Map.RowId, MapLink.RawX, MapLink.RawY));
                     break;
                 case "<world>":
-                    sb.AddText(World!.Name);
+                    sb.AddText(World.Name);
                     break;
                 case "<type>":
                     switch (RelayType)
@@ -287,8 +308,16 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
             }
         }
 
-        return (FindRow<World>(x => x!.IsPublic && text.Contains(x.Name.RawString, StringComparison.OrdinalIgnoreCase)) ?? null, heuristicInstance != 0 ? (uint)heuristicInstance : (uint)mapInstance, (uint)relayType);
+        World? partial = null;
+        if (Config.AllowPartialWorldMatches)
+            foreach (var word in RemoveConflicts(text).Split(' ').Where(t => !ECommons.GenericHelpers.IsNullOrEmpty(t) && t.Length > 2))
+                partial ??= FindRow<World>(x => x!.IsPublic && x.DataCenter.Value!.Name == Player.CurrentDataCenter && x.Name.RawString.Contains(word, StringComparison.OrdinalIgnoreCase));
+
+        return (partial ?? FindRow<World>(x => x!.IsPublic && RemoveConflicts(text).Contains(x.Name.RawString, StringComparison.OrdinalIgnoreCase)) ?? null, heuristicInstance != 0 ? (uint)heuristicInstance : (uint)mapInstance, (uint)relayType);
     }
+
+    // I think this is the only case where an S rank has the name of a world contained within it
+    private string RemoveConflicts(string text) => text.Replace("kaiser behemoth", string.Empty, StringComparison.OrdinalIgnoreCase);
 
     private char ReplaceSeIconChar(char c)
     {

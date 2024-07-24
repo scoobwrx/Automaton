@@ -9,6 +9,7 @@ using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
 using static System.Net.Mime.MediaTypeNames;
 using System.Text.RegularExpressions;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
 
 namespace Automaton.UI;
 
@@ -28,23 +29,12 @@ internal class DebugWindow : Window
 
     }
 
+    private int id;
     public unsafe override void Draw()
     {
-        if (TryGetAddonByName<AtkUnitBase>("SelectYesno", out var addon))
-        {
-            var am = new AddonMaster.SelectYesno(addon);
-            var fish = MemoryHelper.ReadSeStringNullTerminated(new nint(addon->AtkValues[15].String)).ExtractText();
-            var collectability = int.Parse(Regex.Match(am.TextLegacy, @"\d+").Value);
-            var actual = GetRow<Item>(36473).Singular.RawString;
-            ImGui.TextUnformatted($"fsh:{fish} id:{FindRow<Item>(x => !x.Singular.RawString.IsNullOrEmpty() && fish.Contains(x.Singular.RawString, StringComparison.InvariantCultureIgnoreCase)).RowId} clt:{collectability}");
-            ImGui.TextUnformatted($"fsh:{fish} afsh:{actual} {fish.Contains(actual, StringComparison.InvariantCultureIgnoreCase)}");
-            //foreach (var row in GetSheet<Item>())
-            //{
-            //    if (fish.Contains(row.Singular.RawString, StringComparison.InvariantCultureIgnoreCase))
-            //    {
-            //        ImGui.TextUnformatted($"fish {row.RowId} {row.Singular.RawString} matches");
-            //    }
-            //}
-        }
+        if (ImGui.InputInt("home aetheryte", ref id))
+            PlayerState.Instance()->HomeAetheryteId = (ushort)id;
+
+        ImGui.TextUnformatted($"{PlayerState.Instance()->HomeAetheryteId}");
     }
 }

@@ -35,6 +35,8 @@ public unsafe static class Player
     public static bool IsInHomeWorld => Svc.ClientState.LocalPlayer.HomeWorld.Id == Svc.ClientState.LocalPlayer.CurrentWorld.Id;
     public static string HomeWorld => Svc.ClientState.LocalPlayer?.HomeWorld.GameData.Name.ToString();
     public static string CurrentWorld => Svc.ClientState.LocalPlayer?.CurrentWorld.GameData.Name.ToString();
+    public static string HomeDataCenter => GetRow<World>(Svc.ClientState.LocalPlayer.HomeWorld.Id).DataCenter.Value.Name.ToString();
+    public static string CurrentDataCenter => GetRow<World>(Svc.ClientState.LocalPlayer.CurrentWorld.Id).DataCenter.Value.Name.ToString();
     public static Character* Character => (Character*)Svc.ClientState.LocalPlayer.Address;
     public static BattleChara* BattleChara => (BattleChara*)Svc.ClientState.LocalPlayer.Address;
     public static CSGameObject* GameObject => (CSGameObject*)Svc.ClientState.LocalPlayer.Address;
@@ -70,9 +72,9 @@ public unsafe static class Player
     public static bool IsNear(this IPlayerCharacter pc, CSGameObject obj, float distance = 3) => pc.Distance(obj) < distance;
     public static bool IsNear(this IPlayerCharacter pc, DGameObject obj, float distance = 3) => pc.Distance(obj) < distance;
     public static bool IsNear(this IPlayerCharacter pc, Vector3 pos, float distance = 3) => pc.Distance(pos) < distance;
-    public static float Distance(this IPlayerCharacter pc, CSGameObject obj) => Vector3.DistanceSquared(pc.Position, obj.Position);
-    public static float Distance(this IPlayerCharacter pc, DGameObject obj) => Vector3.DistanceSquared(pc.Position, obj.Position);
-    public static float Distance(this IPlayerCharacter pc, Vector3 pos) => Vector3.DistanceSquared(pc.Position, pos);
+    public static float Distance(this IPlayerCharacter pc, CSGameObject obj) => Vector3.Distance(pc.Position, obj.Position);
+    public static float Distance(this IPlayerCharacter pc, DGameObject obj) => Vector3.Distance(pc.Position, obj.Position);
+    public static float Distance(this IPlayerCharacter pc, Vector3 pos) => Vector3.Distance(pc.Position, pos);
 
     private static int EquipAttemptLoops = 0;
     public static void Equip(uint itemID)

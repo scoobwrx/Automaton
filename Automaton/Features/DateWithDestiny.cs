@@ -269,7 +269,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private void ExecuteDismount() => ExecuteActionSafe(ActionType.GeneralAction, 23);
     private void ExecuteJump() => ExecuteActionSafe(ActionType.GeneralAction, 2);
 
-    private IOrderedEnumerable<IFate> GetFates() => Svc.Fates.Where(FateConditions).OrderBy(f => Vector3.DistanceSquared(Player.Position, f.Position));
+    private IOrderedEnumerable<IFate> GetFates() => Svc.Fates.Where(FateConditions).OrderBy(f => Vector3.Distance(Player.Position, f.Position));
     public bool FateConditions(IFate f) => f.GameData.Rule == 1 && f.State != FateState.Preparation && f.Duration <= Config.MaxDuration && f.Progress <= Config.MaxProgress && f.TimeRemaining > Config.MinTimeRemaining && !Config.blacklist.Contains(f.FateId);
     private unsafe DGameObject? GetFateMob()
         => Svc.Objects.OrderBy(Player.Object.Distance)
@@ -286,8 +286,8 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private unsafe int GetItemCount(uint itemID) => InventoryManager.Instance()->GetInventoryItemCount(itemID);
 
     private unsafe FateContext* CurrentFate => FateManager.Instance()->GetFateById(nextFateID);
-    private unsafe float DistanceToFate() => Vector3.DistanceSquared(CurrentFate->Location, Svc.ClientState.LocalPlayer!.Position);
-    private unsafe float DistanceToTarget() => Vector3.DistanceSquared(TargetPos, Svc.ClientState.LocalPlayer!.Position);
+    private unsafe float DistanceToFate() => Vector3.Distance(CurrentFate->Location, Svc.ClientState.LocalPlayer!.Position);
+    private unsafe float DistanceToTarget() => Vector3.Distance(TargetPos, Svc.ClientState.LocalPlayer!.Position);
     public unsafe Vector3 GetRandomPointInFate(ushort fateID)
     {
         var fate = FateManager.Instance()->GetFateById(fateID);
