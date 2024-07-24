@@ -29,7 +29,7 @@ public class AddressBook : Tweak<AddresBookConfiguration>
         {
             ImGuiEx.TextV(Colors.White, $"{loc.Name}: {loc.Position}");
             ImGui.SameLine();
-            ImGuiX.PathfindButton(Navmesh, loc.Position);
+            ImGuiX.PathfindButton(P.Navmesh, loc.Position);
             ImGui.SameLine();
             if (ImGuiComponents.IconButton(loc.Position.GetHashCode(), FontAwesomeIcon.Trash))
                 Config.Locations.Remove(loc);
@@ -44,7 +44,7 @@ public class AddressBook : Tweak<AddresBookConfiguration>
             {
                 ImGuiEx.TextV(Colors.White, $"{loc.Name}: {loc.Position}");
                 ImGui.SameLine();
-                ImGuiX.PathfindButton(Navmesh, loc.Position);
+                ImGuiX.PathfindButton(P.Navmesh, loc.Position);
                 ImGui.SameLine();
                 if (ImGuiComponents.IconButton(loc.Position.GetHashCode(), FontAwesomeIcon.Trash))
                     Config.Locations.Remove(loc);
@@ -57,6 +57,6 @@ public class AddressBook : Tweak<AddresBookConfiguration>
     {
         var place = Config.Locations.FirstOrDefault(l => l.Name.Contains(arguments));
         if (place != default)
-            Navmesh.PathfindAndMoveTo(place.Position, false);
+            P.Navmesh.PathfindAndMoveTo(place.Position, false);
     }
 }

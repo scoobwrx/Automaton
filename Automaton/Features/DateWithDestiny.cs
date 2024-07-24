@@ -174,10 +174,10 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private unsafe void OnUpdate(IFramework framework)
     {
         if (!active || Svc.Fates.Count == 0 || Svc.Condition[ConditionFlag.Unknown57] || Svc.Condition[ConditionFlag.Casting]) return;
-        if (Navmesh.IsRunning())
+        if (P.Navmesh.IsRunning())
         {
             if (DistanceToTarget() <= 5)
-                Navmesh.Stop();
+                P.Navmesh.Stop();
             else
                 return;
         }
@@ -197,10 +197,10 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 {
                     if ((Config.FullAuto || Config.AutoTarget) && Svc.Targets.Target == null)
                         Svc.Targets.Target = target;
-                    if ((Config.FullAuto || Config.AutoMoveToMobs) && !Navmesh.PathfindInProgress())
+                    if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress())
                     {
                         TargetPos = target.Position;
-                        Navmesh.PathfindAndMoveTo(TargetPos, false);
+                        P.Navmesh.PathfindAndMoveTo(TargetPos, false);
                         return;
                     }
                 }
@@ -254,12 +254,12 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             }
 
             var nextFate = GetFates().FirstOrDefault();
-            if ((Config.FullAuto || Config.PathToFate) && nextFate is not null && Svc.Condition[ConditionFlag.InFlight] && !Navmesh.PathfindInProgress())
+            if ((Config.FullAuto || Config.PathToFate) && nextFate is not null && Svc.Condition[ConditionFlag.InFlight] && !P.Navmesh.PathfindInProgress())
             {
                 Svc.Log.Debug("Finding path to fate");
                 nextFateID = nextFate.FateId;
                 TargetPos = GetRandomPointInFate(nextFateID);
-                Navmesh.PathfindAndMoveTo(TargetPos, true);
+                P.Navmesh.PathfindAndMoveTo(TargetPos, true);
             }
         }
     }
@@ -293,7 +293,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         var fate = FateManager.Instance()->GetFateById(fateID);
         var angle = random.NextDouble() * 2 * Math.PI;
         var randomPoint = new Vector3((float)(fate->Location.X + fate->Radius / 2 * Math.Cos(angle)), fate->Location.Y, (float)(fate->Location.Z + fate->Radius / 2 * Math.Sin(angle)));
-        var point = Navmesh.NearestPoint(randomPoint, 5, 5);
+        var point = P.Navmesh.NearestPoint(randomPoint, 5, 5);
         return (Vector3)(point == null ? fate->Location : point);
     }
 

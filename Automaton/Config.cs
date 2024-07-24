@@ -9,7 +9,7 @@ namespace Automaton.Configuration;
 public class Config : IEzConfig
 {
     [JsonIgnore]
-    public const int CURRENT_CONFIG_VERSION = 2;
+    public const int CURRENT_CONFIG_VERSION = 3;
 
     public int Version = CURRENT_CONFIG_VERSION;
     public ObservableCollection<string> EnabledTweaks = [];
@@ -51,5 +51,23 @@ public class YamlFactory : ISerializationFactory
     public string Serialize(object s, bool prettyPrint)
     {
         return new SerializerBuilder().Build().Serialize(s);
+    }
+}
+
+public interface IMigration
+{
+    int Version { get; }
+    void Migrate(ref Config config);
+}
+
+public class V3 : IMigration
+{
+    public int Version => 3;
+    public void Migrate(ref Config config)
+    {
+        var oldType = config.Tweaks.HuntRelayHelper.Types[0];
+        if (oldType.TypeHeuristics == @"s rank, (?:^|\W)[sS](?:$|\W)")
+            config.Tweaks.HuntRelayHelper.Types[0] = (oldType.RelayType, oldType.TypeFormat, @"s rank, rank s, /(?:^|\W)[sS](?:$|\W)/");
+        config.Tweaks.HuntRelayHelper.Types.Insert(1, (HuntRelayHelper.RelayTypes.Minions, "Minions", @"ssminion, /\bminions?\b/"));
     }
 }

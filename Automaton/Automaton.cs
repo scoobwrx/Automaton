@@ -1,4 +1,5 @@
 using Automaton.Configuration;
+using Automaton.IPC;
 using Automaton.UI;
 using Dalamud.Plugin;
 using ECommons;
@@ -22,6 +23,7 @@ public class Automaton : IDalamudPlugin
 
     public static readonly HashSet<Tweak> Tweaks = [];
     internal TaskManager TaskManager;
+    internal NavmeshIPC Navmesh;
     internal NativeController NativeController;
     internal AddonObserver AddonObserver;
 
@@ -33,6 +35,17 @@ public class Automaton : IDalamudPlugin
         EzConfig.DefaultSerializationFactory = new YamlFactory();
         Config = EzConfig.Init<Config>();
 
+        IMigration[] migrations = [new V3()];
+        foreach (var migration in migrations)
+        {
+            if (Config.Version < migration.Version)
+            {
+                Svc.Log.Info($"Migrating from config version {Config.Version} to {migration.Version}");
+                migration.Migrate(ref Config);
+                Config.Version = migration.Version;
+            }
+        }
+
         EzCmd.Add(Command, OnCommand, $"Opens the {Name} menu");
         EzConfigGui.Init(new HaselWindow().Draw);
         HaselWindow.SetWindowProperties();
@@ -41,6 +54,7 @@ public class Automaton : IDalamudPlugin
 
         AddonObserver = new();
         TaskManager = new();
+        Navmesh = new();
 
         Svc.Framework.RunOnFrameworkThread(InitializeTweaks);
         C.EnabledTweaks.CollectionChanged += OnChange;

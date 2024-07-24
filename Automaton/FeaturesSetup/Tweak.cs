@@ -21,7 +21,6 @@ public abstract partial class Tweak : ITweak
         IsDebug = CachedType.GetCustomAttribute<TweakAttribute>()?.Debug ?? false;
 
         TaskManager = new();
-        Navmesh = new();
 
         try
         {
@@ -74,7 +73,6 @@ public abstract partial class Tweak : ITweak
     public bool Disabled { get; protected set; }
 
     protected TaskManager TaskManager = null!;
-    protected NavmeshIPC Navmesh = null!;
 
     public virtual void SetupAddressHooks() { }
     public virtual void SetupVTableHooks() { }

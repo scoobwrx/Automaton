@@ -12,13 +12,11 @@ namespace Automaton.UI;
 internal class FateTrackerUI : Window
 {
     private readonly DateWithDestiny _tweak;
-    private readonly NavmeshIPC Navmesh;
     internal uint SelectedTerritory = 0;
 
     public FateTrackerUI(DateWithDestiny tweak) : base($"Fate Tracker##{Name}")
     {
         _tweak = tweak;
-        Navmesh = new();
 
         //IsOpen = true;
         //DisableWindowSounds = true;
@@ -39,7 +37,7 @@ internal class FateTrackerUI : Window
         if (ImGuiComponents.IconButton(!_tweak.active ? FontAwesomeIcon.Play : FontAwesomeIcon.Stop))
         {
             _tweak.active ^= true;
-            Navmesh.Stop();
+            P.Navmesh.Stop();
         }
         //ImGui.SameLine();
         //if (ImGuiComponents.IconButtonWithText((FontAwesomeIcon)0xf002, "Browse"))
@@ -60,10 +58,10 @@ internal class FateTrackerUI : Window
             ImGui.TableNextColumn();
             if (ImGuiComponents.IconButton($"###Pathfind{fate.FateId}", FontAwesomeIcon.Map))
             {
-                if (!Navmesh.IsRunning())
-                    Navmesh.PathfindAndMoveTo(_tweak.GetRandomPointInFate(fate.FateId), Svc.Condition[ConditionFlag.InFlight]);
+                if (!P.Navmesh.IsRunning())
+                    P.Navmesh.PathfindAndMoveTo(_tweak.GetRandomPointInFate(fate.FateId), Svc.Condition[ConditionFlag.InFlight]);
                 else
-                    Navmesh.Stop();
+                    P.Navmesh.Stop();
             }
             if (ImGui.IsItemHovered()) ImGui.SetTooltip($"Pathfind to {fate.Position}");
             ImGui.SameLine();

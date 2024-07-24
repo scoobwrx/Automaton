@@ -17,26 +17,26 @@ namespace Automaton.Features;
 public class HuntRelayHelperConfiguration
 {
     public List<(XivChatType Channel, string Command, bool IsLocal, bool Enabled)> Channels =
-        [
-            (Ls1, "l1", true, false),
-            (Ls2, "l2", true, false),
-            (Ls3, "l3", true, false),
-            (Ls4, "l4", true, false),
-            (Ls5, "l5", true, false),
-            (Ls6, "l6", true, false),
-            (Ls7, "l7", true, false),
-            (Ls8, "l8", true, false),
-            (FreeCompany, "fc", true, false),
-            (NoviceNetwork, "n", true, false),
-            (CrossLinkShell1, "cwl1", false, false),
-            (CrossLinkShell2, "cwl2", false, false),
-            (CrossLinkShell3, "cwl3", false, false),
-            (CrossLinkShell4, "cwl4", false, false),
-            (CrossLinkShell5, "cwl5", false, false),
-            (CrossLinkShell6, "cwl6", false, false),
-            (CrossLinkShell7, "cwl7", false, false),
-            (CrossLinkShell8, "cwl8", false, false),
-        ];
+    [
+        (Ls1, "l1", true, false),
+        (Ls2, "l2", true, false),
+        (Ls3, "l3", true, false),
+        (Ls4, "l4", true, false),
+        (Ls5, "l5", true, false),
+        (Ls6, "l6", true, false),
+        (Ls7, "l7", true, false),
+        (Ls8, "l8", true, false),
+        (FreeCompany, "fc", true, false),
+        (NoviceNetwork, "n", true, false),
+        (CrossLinkShell1, "cwl1", false, false),
+        (CrossLinkShell2, "cwl2", false, false),
+        (CrossLinkShell3, "cwl3", false, false),
+        (CrossLinkShell4, "cwl4", false, false),
+        (CrossLinkShell5, "cwl5", false, false),
+        (CrossLinkShell6, "cwl6", false, false),
+        (CrossLinkShell7, "cwl7", false, false),
+        (CrossLinkShell8, "cwl8", false, false),
+    ];
 
     [BoolConfig] public bool OnlySendLocalHuntsToLocalChannels = true;
     [BoolConfig] public bool AssumeBlankWorldsAreLocal = false;
@@ -47,11 +47,12 @@ public class HuntRelayHelperConfiguration
     [EnumConfig] public HuntRelayHelper.Locality AssumedLocality = HuntRelayHelper.Locality.PlayerHomeWorld;
 
     public List<(HuntRelayHelper.RelayTypes RelayType, string TypeFormat, string TypeHeuristics)> Types =
-        [
-            (HuntRelayHelper.RelayTypes.SRank, "S Rank", @"s rank, rank s, /(?:^|\W)[sS](?:$|\W)/"),
-            (HuntRelayHelper.RelayTypes.Train, "Train", @"train"),
-            (HuntRelayHelper.RelayTypes.FATE, "FATE", @"boss, fate"),
-        ];
+    [
+        (HuntRelayHelper.RelayTypes.SRank, "S Rank", @"s rank, rank s, /(?:^|\W)[sS](?:$|\W)/"),
+        (HuntRelayHelper.RelayTypes.Minions, "Minions", @"ssminion, /\bminions?\b/"),
+        (HuntRelayHelper.RelayTypes.Train, "Train", @"train"),
+        (HuntRelayHelper.RelayTypes.FATE, "FATE", @"boss, fate"),
+    ];
 }
 
 [Tweak]
@@ -85,8 +86,11 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
     public enum RelayTypes
     {
         SRank,
+        Minions,
         Train,
-        FATE
+        FATE,
+
+        None, // Keep this last
     }
 
     public override void DrawConfig()
@@ -107,12 +111,14 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
                 var tmpE = c.Value;
                 if (ImGui.Checkbox($"##{c.Value.Channel}{nameof(c.Value.Enabled)}", ref tmpE.Enabled))
                     Config.Channels[c.Index] = (Config.Channels[c.Index].Channel, Config.Channels[c.Index].Command, Config.Channels[c.Index].IsLocal, tmpE.Enabled);
+                if (ImGui.IsItemHovered()) ImGui.SetTooltip("Enable sending to this channel");
 
                 ImGui.SameLine();
                 var tmpL = c.Value;
                 if (ImGui.Checkbox($"##{c.Value.Channel}{nameof(c.Value.IsLocal)}", ref tmpL.IsLocal))
                     Config.Channels[c.Index] = (Config.Channels[c.Index].Channel, Config.Channels[c.Index].Command, tmpL.IsLocal, Config.Channels[c.Index].Enabled);
-                ImGuiComponents.HelpMarker("Set this channel to be considered a \"local\" channel.");
+                if (ImGui.IsItemHovered()) ImGui.SetTooltip("Mark channel as \"local\"");
+                //ImGuiComponents.HelpMarker("Set this channel to be considered a \"local\" channel.");
             }
         }
 
@@ -180,6 +186,11 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
             if (maplink is MapLinkPayload mlp)
             {
                 var (world, instance, relayType) = DetectWorldInstanceRelayType(message);
+                if ((RelayTypes)relayType == RelayTypes.None)
+                {
+                    Svc.Log.Info($"Failed to detect relay type in {nameof(MapLinkPayload)} message: {message}");
+                    return;
+                }
                 if (world == null && Config.AssumeBlankWorldsAreLocal)
                 {
                     switch (Config.AssumedLocality)
@@ -200,7 +211,7 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
                 if (world != null)
                 {
                     Svc.Log.Verbose($"Detected world {world.Name} and instance {instance} in {nameof(MapLinkPayload)} message: {message}");
-                    message.Payloads.AddRange([RelayLinkPayload, new IconPayload(BitmapFontIcon.NotoriousMonster), new RelayPayload(mlp, world.RowId, instance, relayType, (uint)type), RawPayload.LinkTerminator]);
+                    message.Payloads.AddRange([RelayLinkPayload, new IconPayload(BitmapFontIcon.NotoriousMonster), new RelayPayload(mlp, world.RowId, instance, relayType, (uint)type).ToRawPayload(), RawPayload.LinkTerminator]);
                 }
                 else
                     Svc.Log.Info($"Failed to detect world in {nameof(MapLinkPayload)} message: {message}");
@@ -260,6 +271,9 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
                         case (uint)RelayTypes.SRank:
                             sb.AddText(Config.Types[(int)RelayTypes.SRank].TypeFormat);
                             break;
+                        case (uint)RelayTypes.Minions:
+                            sb.AddText(Config.Types[(int)RelayTypes.Minions].TypeFormat);
+                            break;
                         case (uint)RelayTypes.Train:
                             sb.AddText(Config.Types[(int)RelayTypes.Train].TypeFormat);
                             break;
@@ -298,10 +312,10 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
                 heuristicInstance = i2;
         }
 
-        var relayType = RelayTypes.SRank;
+        var relayType = RelayTypes.None;
         foreach (var t in Config.Types)
         {
-            if (t.TypeHeuristics.Split(',').Select(x => x.Trim()).Any(x => { return x.StartsWith('/') && x.EndsWith('/') ? Regex.IsMatch(text, x[1..^1]) : text.Contains(x, StringComparison.OrdinalIgnoreCase); }))
+            if (t.TypeHeuristics.Split(',').Select(x => x.Trim()).Any(x => { return x.StartsWith('/') && x.EndsWith('/') ? Regex.IsMatch(text, x[1..^1], RegexOptions.IgnoreCase) : text.Contains(x, StringComparison.OrdinalIgnoreCase); }))
             {
                 relayType = t.RelayType;
                 break;
