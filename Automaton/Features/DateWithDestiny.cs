@@ -210,10 +210,8 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             {
                 if ((Config.FullAuto || Config.AutoTarget) && Svc.Targets.Target?.GameObjectId != target.GameObjectId)
                 {
-                    if (Svc.Targets.Target != null) Svc.Log.Debug(Svc.Targets.Target!.Name.ToString());
                     Svc.Targets.Target = target;
                     TargetPos = target.Position;
-                    Svc.Log.Debug(Svc.Targets.Target!.Name.ToString());
                 }
                 if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && DistanceToTarget() > 4)
                 {
