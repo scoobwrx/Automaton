@@ -81,6 +81,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
     private bool yokaiMode;
     private const uint YokaiWatch = 15222;
+    private readonly string[] ForlornNames = ["Forlorn Maiden", "The Forlorn"];
     private static readonly uint[] YokaiMinions = [200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 390, 391, 392, 393];
     private static readonly uint[] YokaiLegendaryMedals = [15168, 15169, 15170, 15171, 15172, 15173, 15174, 15175, 15176, 15177, 15178, 15179, 15180, 30805, 30804, 30803, 30806];
     private static readonly uint[] YokaiWeapons = [15210, 15216, 15212, 15217, 15213, 15219, 15218, 15220, 15211, 15221, 15214, 15215, 15209, 30809, 30808, 30807, 30810];
@@ -308,7 +309,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         // Or belongs to the active fate
         || (x.Struct() != null && x.Struct()->FateId == FateID) && Math.Sqrt(Math.Pow(x.Position.X - CurrentFate->Location.X, 2) + Math.Pow(x.Position.Z - CurrentFate->Location.Z, 2)) < CurrentFate->Radius))
         // Prioritize Forlorns if configured
-        .OrderByDescending(x => Config.PrioritizeForlorns && x.Name.ToString().Contains("Forlorn"))
+        .OrderByDescending(x => Config.PrioritizeForlorns && ForlornNames.Contains(x.Name.ToString()))
         // Prioritize enemies targeting us
         .ThenByDescending(x => x.IsTargetingPlayer())
         // Prioritize lowest HP enemy
@@ -324,6 +325,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private unsafe int GetItemCount(uint itemID) => InventoryManager.Instance()->GetInventoryItemCount(itemID);
 
     private unsafe FateContext* CurrentFate => FateManager.Instance()->GetFateById(nextFateID);
+
     private unsafe float DistanceToFate() => Vector3.Distance(CurrentFate->Location, Svc.ClientState.LocalPlayer!.Position);
     private unsafe float DistanceToTarget() => Vector3.Distance(TargetPos, Svc.ClientState.LocalPlayer!.Position);
     public unsafe Vector3 GetRandomPointInFate(ushort fateID)
