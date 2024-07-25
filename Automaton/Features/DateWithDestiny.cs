@@ -180,16 +180,21 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         if (!active || Svc.Fates.Count == 0 || Svc.Condition[ConditionFlag.Unknown57] || Svc.Condition[ConditionFlag.Casting]) return;
         if (P.Navmesh.IsRunning())
         {
-            if (Config.StayInMeleeRange && Svc.Targets.Target != null) TargetPos = Svc.Targets.Target.Position;
-            if (DistanceToTarget() <= 3)
+            if (DistanceToTarget() <= 4)
                 P.Navmesh.Stop();
             else
                 return;
         }
 
+        // Update target position continually if we're fighting so we don't pingpong
         if (Svc.Condition[ConditionFlag.InCombat] && Svc.Targets.Target != null)
         {
-            if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && DistanceToTarget() > 3) P.Navmesh.PathfindAndMoveTo(Svc.Targets.Target.Position, false);
+            TargetPos = Svc.Targets.Target.Position;
+            if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && DistanceToTarget() > 4)
+            {
+                P.Navmesh.PathfindAndMoveTo(Svc.Targets.Target.Position, false);
+                return;
+            }
         }
 
         var cf = FateManager.Instance()->CurrentFate;
@@ -208,7 +213,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                     Svc.Targets.Target = target;
                     TargetPos = target.Position;
                 }
-                if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && DistanceToTarget() > 3)
+                if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && DistanceToTarget() > 4)
                 {
                     P.Navmesh.PathfindAndMoveTo(TargetPos, false);
                     return;
@@ -281,19 +286,25 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private IOrderedEnumerable<IFate> GetFates() => Svc.Fates.Where(FateConditions).OrderBy(f => Vector3.Distance(Player.Position, f.Position));
     public bool FateConditions(IFate f) => f.GameData.Rule == 1 && f.State != FateState.Preparation && f.Duration <= Config.MaxDuration && f.Progress <= Config.MaxProgress && f.TimeRemaining > Config.MinTimeRemaining && !Config.blacklist.Contains(f.FateId);
     private unsafe DGameObject? GetFateMob()
-        => Svc.Objects.OrderBy(Player.Object.Distance)
-        .ThenByDescending(x => (x as ICharacter)?.MaxHp ?? 0)
-        .ThenByDescending(x => ObjectFunctions.GetAttackableEnemyCountAroundPoint(x.Position, 5))
-        .Where(x => !x.IsDead && x.IsTargetable && x.IsHostile() && x.ObjectKind == ObjectKind.BattleNpc && x.SubKind == (byte)BattleNpcSubKind.Enemy)
-        //Also kill anything that has aggroed us regardless of Fate ID
-        .Where(x => x.IsTargetingPlayer() || (x.Struct() != null && x.Struct()->FateId == FateID))
-        .Where(x => x.IsTargetingPlayer() || Math.Sqrt(Math.Pow(x.Position.X - CurrentFate->Location.X, 2) + Math.Pow(x.Position.Z - CurrentFate->Location.Z, 2)) < CurrentFate->Radius)
+        => Svc.Objects
+        .Where(x => x is ICharacter { MaxHp: > 0 }
+        && !x.IsDead
+        && x.IsTargetable
+        && x.IsHostile()
+        && x.ObjectKind == ObjectKind.BattleNpc
+        && x.SubKind == (byte)BattleNpcSubKind.Enemy
+        // Kill any enemy that is targeting us
+        && (x.IsTargetingPlayer()
+        // Or belongs to the active fate
+        || (x.Struct() != null && x.Struct()->FateId == FateID) && Math.Sqrt(Math.Pow(x.Position.X - CurrentFate->Location.X, 2) + Math.Pow(x.Position.Z - CurrentFate->Location.Z, 2)) < CurrentFate->Radius))
+        // Prioritize close enemies
+        .OrderBy(x => Vector3.Distance(Player.Position, x.Position))
         // Prioritize lowest HP enemy
-        .OrderByDescending(x => (x as ICharacter)?.CurrentHp)
+        .ThenBy(x => (x as ICharacter)?.CurrentHp)
         // Prioritize enemies targeting player
-        .ThenByDescending(x => x.IsTargetingPlayer())
+        .ThenByDescending(x => x.IsTargetingPlayer() ? 1 : 0)
         // Prioritize Forlorns above all if configured to do so
-        .ThenByDescending(x => Config.PrioritizeForlorns && x.Name.ToString().Contains("Forlorn"))
+        .ThenByDescending(x => Config.PrioritizeForlorns && x.Name.ToString().Contains("Forlorn") ? 1 : 0)
         .FirstOrDefault();
 
     private unsafe uint CurrentCompanion => Svc.ClientState.LocalPlayer!.Character()->CompanionObject->Character.GameObject.BaseId;
