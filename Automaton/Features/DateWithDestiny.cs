@@ -3,6 +3,7 @@ using Dalamud.Game.ClientState.Fates;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Interface.Utility.Raii;
+using ECommons.EzHookManager;
 using ECommons.GameFunctions;
 using ECommons.SimpleGui;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -10,6 +11,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.Fate;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
+using static ECommons.GameFunctions.ObjectFunctions;
 
 namespace Automaton.Features;
 
@@ -232,7 +234,6 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 if (target != null)
                 {
                     Svc.Targets.Target = target;
-                    return;
                 }
             }
 
@@ -312,6 +313,8 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         .OrderByDescending(x => Config.PrioritizeForlorns && ForlornNames.Contains(x.Name.ToString()))
         // Prioritize enemies targeting us
         .ThenByDescending(x => x.IsTargetingPlayer())
+        // Deprioritize mobs in combat with other players (hopefully avoid botlike pingpong behavior in trash fates)
+        .ThenBy(IsTaggedByOther)
         // Prioritize lowest HP enemy
         .ThenBy(x => (x as ICharacter)?.CurrentHp)
         // Prioritize closest enemy        
@@ -344,5 +347,12 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             if (Player.Level > fateMaxLevel)
                 ECommons.Automation.Chat.Instance.SendMessage("/lsync");
         }
+    }
+
+    private static unsafe bool IsTaggedByOther(IGameObject a)
+    {
+        GetNameplateColor ??= EzDelegate.Get<GetNameplateColorDelegate>(GetNameplateColorSig);
+        var plateType = GetNameplateColor(a.Address);
+        return plateType == 10;
     }
 }
