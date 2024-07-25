@@ -19,6 +19,8 @@ public class DateWithDestinyConfiguration
     public List<uint> whitelist = [];
     public List<uint> zones = [];
     [BoolConfig] public bool YokaiMode;
+    [BoolConfig] public bool StayInMeleeRange;
+    [BoolConfig] public bool PrioritizeForlorns = true;
     [BoolConfig] public bool EquipWatch = true;
     [BoolConfig] public bool SwapMinions = true;
     [BoolConfig] public bool SwapZones = true;
@@ -127,6 +129,8 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     {
         ImGuiX.DrawSection("Configuration");
         ImGui.Checkbox("Yo-Kai Mode (Very Experimental)", ref yokaiMode);
+        ImGui.Checkbox("Prioritize targeting Forlorns", ref Config.PrioritizeForlorns);
+        ImGui.Checkbox("Always close to melee range of target", ref Config.StayInMeleeRange);
         ImGui.Checkbox("Full Auto Mode", ref Config.FullAuto);
         if (ImGui.IsItemHovered()) ImGui.SetTooltip($"All the below options will be treated as true if this is enabled.");
         ImGui.Indent();
@@ -176,33 +180,38 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         if (!active || Svc.Fates.Count == 0 || Svc.Condition[ConditionFlag.Unknown57] || Svc.Condition[ConditionFlag.Casting]) return;
         if (P.Navmesh.IsRunning())
         {
-            if (DistanceToTarget() <= 5)
+            if (Config.StayInMeleeRange && Svc.Targets.Target != null) TargetPos = Svc.Targets.Target.Position;
+            if (DistanceToTarget() <= 3)
                 P.Navmesh.Stop();
             else
                 return;
         }
 
-        if (Svc.Condition[ConditionFlag.InCombat] && !Svc.Condition[ConditionFlag.Mounted]) return;
+        if (Svc.Condition[ConditionFlag.InCombat] && Svc.Targets.Target != null)
+        {
+            if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && DistanceToTarget() > 3) P.Navmesh.PathfindAndMoveTo(Svc.Targets.Target.Position, false);
+        }
+
         var cf = FateManager.Instance()->CurrentFate;
         if (cf is not null)
         {
-            FateID = cf->FateId;
             fateMaxLevel = cf->MaxLevel;
+            FateID = cf->FateId;
             if (Svc.Condition[ConditionFlag.Mounted])
                 ExecuteDismount();
-            if (!Svc.Condition[ConditionFlag.InCombat] && Svc.Targets.Target == null)
+
+            var target = GetFateMob();
+            if (target != null)
             {
-                var target = GetFateMob();
-                if (target != null)
+                if ((Config.FullAuto || Config.AutoTarget))
                 {
-                    if ((Config.FullAuto || Config.AutoTarget) && Svc.Targets.Target == null)
-                        Svc.Targets.Target = target;
-                    if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress())
-                    {
-                        TargetPos = target.Position;
-                        P.Navmesh.PathfindAndMoveTo(TargetPos, false);
-                        return;
-                    }
+                    Svc.Targets.Target = target;
+                    TargetPos = target.Position;
+                }
+                if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && DistanceToTarget() > 3)
+                {
+                    P.Navmesh.PathfindAndMoveTo(TargetPos, false);
+                    return;
                 }
             }
         }
@@ -275,9 +284,17 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         => Svc.Objects.OrderBy(Player.Object.Distance)
         .ThenByDescending(x => (x as ICharacter)?.MaxHp ?? 0)
         .ThenByDescending(x => ObjectFunctions.GetAttackableEnemyCountAroundPoint(x.Position, 5))
-        .Where(x => x.Struct() != null && x.Struct()->FateId == FateID)
         .Where(x => !x.IsDead && x.IsTargetable && x.IsHostile() && x.ObjectKind == ObjectKind.BattleNpc && x.SubKind == (byte)BattleNpcSubKind.Enemy)
-        .FirstOrDefault(x => Math.Sqrt(Math.Pow(x.Position.X - CurrentFate->Location.X, 2) + Math.Pow(x.Position.Z - CurrentFate->Location.Z, 2)) < CurrentFate->Radius);
+        //Also kill anything that has aggroed us regardless of Fate ID
+        .Where(x => x.IsTargetingPlayer() || (x.Struct() != null && x.Struct()->FateId == FateID))
+        .Where(x => x.IsTargetingPlayer() || Math.Sqrt(Math.Pow(x.Position.X - CurrentFate->Location.X, 2) + Math.Pow(x.Position.Z - CurrentFate->Location.Z, 2)) < CurrentFate->Radius)
+        // Prioritize lowest HP enemy
+        .OrderByDescending(x => (x as ICharacter)?.CurrentHp)
+        // Prioritize enemies targeting player
+        .ThenByDescending(x => x.IsTargetingPlayer())
+        // Prioritize Forlorns above all if configured to do so
+        .ThenByDescending(x => Config.PrioritizeForlorns && x.Name.ToString().Contains("Forlorn"))
+        .FirstOrDefault();
 
     private unsafe uint CurrentCompanion => Svc.ClientState.LocalPlayer!.Character()->CompanionObject->Character.GameObject.BaseId;
     private unsafe bool CompanionUnlocked(uint id) => UIState.Instance()->IsCompanionUnlocked(id);
