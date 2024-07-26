@@ -193,24 +193,24 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     {
         if (!active || Svc.Fates.Count == 0 || Svc.Condition[ConditionFlag.Unknown57] || Svc.Condition[ConditionFlag.Casting]) return;
 
+        // Update target position continually so we don't pingpong
+        if (Svc.Targets.Target != null)
+        {
+            var target = Svc.Targets.Target;
+            TargetPos = target.Position;
+            if (Config.StayInMeleeRange && (Config.FullAuto || Config.AutoMoveToMobs) && !IsInMeleeRange(target.HitboxRadius))
+            {
+                TargetAndMoveToEnemy(target);
+                return;
+            }
+        }
+
         if (P.Navmesh.IsRunning())
         {
             if (DistanceToTarget() < 2 || (Svc.Targets.Target != null && IsInMeleeRange(Svc.Targets.Target!.HitboxRadius)))
                 P.Navmesh.Stop();
             else
                 return;
-        }
-
-        // Update target position continually if we're fighting so we don't pingpong
-        if (Svc.Condition[ConditionFlag.InCombat] && Svc.Targets.Target != null)
-        {
-            var target = Svc.Targets.Target;
-            TargetPos = target.Position;
-            if ((Config.StayInMeleeRange && Config.AutoMoveToMobs) && !IsInMeleeRange(target.HitboxRadius))
-            {
-                P.Navmesh.PathfindAndMoveTo(TargetPos, false);
-                return;
-            }
         }
 
         var cf = FateManager.Instance()->CurrentFate;
@@ -291,15 +291,14 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
     private void TargetAndMoveToEnemy(IGameObject target)
     {
+        TargetPos = target.Position;
         if ((Config.FullAuto || Config.AutoTarget) && Svc.Targets.Target?.GameObjectId != target.GameObjectId)
         {
             Svc.Targets.Target = target;
-            TargetPos = target.Position;
         }
         if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && !IsInMeleeRange(target.HitboxRadius))
         {
             P.Navmesh.PathfindAndMoveTo(TargetPos, false);
-            return;
         }
     }
 
