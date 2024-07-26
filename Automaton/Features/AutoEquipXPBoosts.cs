@@ -20,7 +20,7 @@ internal class AutoEquipXPBoosts : Tweak
 
     private unsafe void CheckForLevelSync(IFramework framework)
     {
-        if (!Player.IsLevelSynced || Player.SyncedLevel == 0) return;
+        if (!Player.IsLevelSynced || Player.SyncedLevel == 0 || IsOccupied()) return;
 
         if (Player.SyncedLevel <= 90)
             if (Inventory.HasItem(41081))

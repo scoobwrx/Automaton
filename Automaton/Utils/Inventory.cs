@@ -53,6 +53,14 @@ public class Inventory
     }
 
     public static unsafe bool HasItem(uint itemId) => GetItemInInventory(itemId, Equippable) != null;
+    public static unsafe bool HasItemEquipped(uint itemId)
+    {
+        var cont = InventoryManager.Instance()->GetInventoryContainer(InventoryType.EquippedItems);
+        for (var i = 0; i < cont->Size; ++i)
+            if (cont->GetInventorySlot(i)->ItemId == itemId)
+                return true;
+        return false;
+    }
 
     public static unsafe InventoryItem* GetItemInInventory(uint itemId, IEnumerable<InventoryType> inventories, bool mustBeHQ = false)
     {

@@ -83,6 +83,8 @@ public unsafe static class Player
     private static int EquipAttemptLoops = 0;
     public static void Equip(uint itemID)
     {
+        if (Inventory.HasItemEquipped(itemID)) return;
+
         var pos = Inventory.GetItemLocationInInventory(itemID, Inventory.Equippable);
         if (pos == null)
         {
