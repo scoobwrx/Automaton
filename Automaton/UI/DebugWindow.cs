@@ -1,15 +1,7 @@
-using Dalamud.Game.ClientState.Objects.SubKinds;
-using Dalamud.Game.Text;
 using Dalamud.Interface.Windowing;
-using Dalamud.Memory;
-using ECommons.UIHelpers.AddonMasterImplementations;
-using FFXIVClientStructs.FFXIV.Client.UI.Agent;
-using FFXIVClientStructs.FFXIV.Component.GUI;
-using ImGuiNET;
-using Lumina.Excel.GeneratedSheets;
-using static System.Net.Mime.MediaTypeNames;
-using System.Text.RegularExpressions;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
+using ImGuiNET;
 
 namespace Automaton.UI;
 
@@ -32,9 +24,7 @@ internal class DebugWindow : Window
     private int id;
     public unsafe override void Draw()
     {
-        if (ImGui.InputInt("home aetheryte", ref id))
-            PlayerState.Instance()->HomeAetheryteId = (ushort)id;
-
-        ImGui.TextUnformatted($"{PlayerState.Instance()->HomeAetheryteId}");
+        var ps = PlayerState.Instance();
+        ImGui.TextUnformatted($"{ps->IsLevelSynced} {ps->SyncedLevel}");
     }
 }
