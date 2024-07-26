@@ -23,6 +23,8 @@ public class DateWithDestinyConfiguration
     [BoolConfig] public bool YokaiMode;
     [BoolConfig] public bool StayInMeleeRange;
     [BoolConfig] public bool PrioritizeForlorns = true;
+    [BoolConfig] public bool PrioritizeBonusFates = true;
+    [BoolConfig(DependsOn = nameof(PrioritizeBonusFates))] public bool BonusWhenTwist = false;
     [BoolConfig] public bool EquipWatch = true;
     [BoolConfig] public bool SwapMinions = true;
     [BoolConfig] public bool SwapZones = true;
@@ -83,7 +85,6 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
     private bool yokaiMode;
     private const uint YokaiWatch = 15222;
-    private readonly string[] ForlornNames = ["Forlorn Maiden", "The Forlorn"];
     private static readonly uint[] YokaiMinions = [200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 390, 391, 392, 393];
     private static readonly uint[] YokaiLegendaryMedals = [15168, 15169, 15170, 15171, 15172, 15173, 15174, 15175, 15176, 15177, 15178, 15179, 15180, 30805, 30804, 30803, 30806];
     private static readonly uint[] YokaiWeapons = [15210, 15216, 15212, 15217, 15213, 15219, 15218, 15220, 15211, 15221, 15214, 15215, 15209, 30809, 30808, 30807, 30810];
@@ -113,6 +114,9 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         .Zip(YokaiZones, (wxy, z) => (wxy.Minion, wxy.Medal, wxy.Weapon, z))
         .ToList();
 
+    private static readonly uint[] ForlornIDs = [7586];
+    private static readonly uint[] TwistOfFateStatusIDs = [1288, 1289];
+
     private ushort nextFateID;
     private byte fateMaxLevel;
     private ushort fateID;
@@ -133,6 +137,13 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         ImGuiX.DrawSection("Configuration");
         ImGui.Checkbox("Yo-Kai Mode (Very Experimental)", ref yokaiMode);
         ImGui.Checkbox("Prioritize targeting Forlorns", ref Config.PrioritizeForlorns);
+        ImGui.Checkbox("Prioritize Fates with EXP bonus", ref Config.PrioritizeBonusFates);
+        ImGui.Indent();
+        using (var _ = ImRaii.Disabled(!Config.PrioritizeBonusFates))
+        {
+            ImGui.Checkbox("Only with Twist of Fate", ref Config.BonusWhenTwist);
+        }
+        ImGui.Unindent();
         ImGui.Checkbox("Always close to melee range of target", ref Config.StayInMeleeRange);
         ImGui.Checkbox("Full Auto Mode", ref Config.FullAuto);
         if (ImGui.IsItemHovered()) ImGui.SetTooltip($"All the below options will be treated as true if this is enabled.");
@@ -181,6 +192,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private unsafe void OnUpdate(IFramework framework)
     {
         if (!active || Svc.Fates.Count == 0 || Svc.Condition[ConditionFlag.Unknown57] || Svc.Condition[ConditionFlag.Casting]) return;
+
         if (P.Navmesh.IsRunning())
         {
             if (DistanceToTarget() <= 4)
@@ -193,7 +205,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         if (Svc.Condition[ConditionFlag.InCombat] && Svc.Targets.Target != null)
         {
             TargetPos = Svc.Targets.Target.Position;
-            if ((Config.StayInMeleeRange && Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && DistanceToTarget() > 4)
+            if ((Config.StayInMeleeRange && Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && DistanceToTarget() > 6)
             {
                 P.Navmesh.PathfindAndMoveTo(Svc.Targets.Target.Position, false);
                 return;
@@ -209,19 +221,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 ExecuteDismount();
 
             var target = GetFateMob();
-            if (target != null)
-            {
-                if ((Config.FullAuto || Config.AutoTarget) && Svc.Targets.Target?.GameObjectId != target.GameObjectId)
-                {
-                    Svc.Targets.Target = target;
-                    TargetPos = target.Position;
-                }
-                if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && DistanceToTarget() > 4)
-                {
-                    P.Navmesh.PathfindAndMoveTo(TargetPos, false);
-                    return;
-                }
-            }
+            if (target != null) TargetAndMoveToEnemy(target);
         }
         else
             FateID = 0;
@@ -230,11 +230,9 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         {
             if (Svc.Condition[ConditionFlag.InCombat])
             {
-                var target = GetFateMob();
-                if (target != null)
-                {
-                    Svc.Targets.Target = target;
-                }
+                if (Svc.Condition[ConditionFlag.Mounted]) ExecuteDismount();
+                var target = GetMobTargetingPlayer();
+                if (target != null) TargetAndMoveToEnemy(target);
             }
 
             if (Config.YokaiMode)
@@ -290,13 +288,46 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         }
     }
 
+    private void TargetAndMoveToEnemy(IGameObject target)
+    {
+        if ((Config.FullAuto || Config.AutoTarget) && Svc.Targets.Target?.GameObjectId != target.GameObjectId)
+        {
+            Svc.Targets.Target = target;
+            TargetPos = target.Position;
+        }
+        if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && DistanceToTarget() > 4)
+        {
+            P.Navmesh.PathfindAndMoveTo(TargetPos, false);
+            return;
+        }
+    }
+
     private unsafe void ExecuteActionSafe(ActionType type, uint id) => action.Exec(() => ActionManager.Instance()->UseAction(type, id));
     private void ExecuteMount() => ExecuteActionSafe(ActionType.GeneralAction, 24); // flying mount roulette
     private void ExecuteDismount() => ExecuteActionSafe(ActionType.GeneralAction, 23);
     private void ExecuteJump() => ExecuteActionSafe(ActionType.GeneralAction, 2);
 
-    private IOrderedEnumerable<IFate> GetFates() => Svc.Fates.Where(FateConditions).OrderBy(f => Vector3.Distance(Player.Position, f.Position));
+    private IOrderedEnumerable<IFate> GetFates() => Svc.Fates.Where(FateConditions)
+        .OrderByDescending(x =>
+        Config.PrioritizeBonusFates
+        && x.HasExpBonus
+        && (
+        !Config.BonusWhenTwist
+        || Player.Status.FirstOrDefault(x => TwistOfFateStatusIDs.Contains(x.StatusId)) != null)
+        )
+        .ThenBy(f => Vector3.Distance(Player.Position, f.Position));
     public bool FateConditions(IFate f) => f.GameData.Rule == 1 && f.State != FateState.Preparation && f.Duration <= Config.MaxDuration && f.Progress <= Config.MaxProgress && f.TimeRemaining > Config.MinTimeRemaining && !Config.blacklist.Contains(f.FateId);
+
+    private unsafe DGameObject? GetMobTargetingPlayer()
+        => Svc.Objects
+        .FirstOrDefault(x => x is ICharacter { MaxHp: > 0 }
+        && !x.IsDead
+        && x.IsTargetable
+        && x.IsHostile()
+        && x.ObjectKind == ObjectKind.BattleNpc
+        && x.SubKind == (byte)BattleNpcSubKind.Enemy
+        && x.IsTargetingPlayer());
+
     private unsafe DGameObject? GetFateMob()
         => Svc.Objects
         .Where(x => x is ICharacter { MaxHp: > 0 }
@@ -305,16 +336,13 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         && x.IsHostile()
         && x.ObjectKind == ObjectKind.BattleNpc
         && x.SubKind == (byte)BattleNpcSubKind.Enemy
-        // Kill any enemy that is targeting us
-        && (x.IsTargetingPlayer()
-        // Or belongs to the active fate
-        || (x.Struct() != null && x.Struct()->FateId == FateID) && Math.Sqrt(Math.Pow(x.Position.X - CurrentFate->Location.X, 2) + Math.Pow(x.Position.Z - CurrentFate->Location.Z, 2)) < CurrentFate->Radius))
+        && (x.Struct() != null && x.Struct()->FateId == FateID) && Math.Sqrt(Math.Pow(x.Position.X - CurrentFate->Location.X, 2) + Math.Pow(x.Position.Z - CurrentFate->Location.Z, 2)) < CurrentFate->Radius)
         // Prioritize Forlorns if configured
-        .OrderByDescending(x => Config.PrioritizeForlorns && ForlornNames.Contains(x.Name.ToString()))
+        .OrderByDescending(x => Config.PrioritizeForlorns && (ForlornIDs.Contains(x.DataId) || x.Name.ToString() == "The Forlorn"))
         // Prioritize enemies targeting us
         .ThenByDescending(x => x.IsTargetingPlayer())
         // Deprioritize mobs in combat with other players (hopefully avoid botlike pingpong behavior in trash fates)
-        .ThenBy(IsTaggedByOther)
+        .ThenBy(x => IsTaggedByOther(x) && !x.IsTargetingPlayer())
         // Prioritize lowest HP enemy
         .ThenBy(x => (x as ICharacter)?.CurrentHp)
         // Prioritize closest enemy        
