@@ -195,7 +195,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
         if (P.Navmesh.IsRunning())
         {
-            if (DistanceToTarget() <= 4)
+            if (DistanceToTarget() < 2 || (Svc.Targets.Target != null && IsInMeleeRange(Svc.Targets.Target!.HitboxRadius)))
                 P.Navmesh.Stop();
             else
                 return;
@@ -204,10 +204,11 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         // Update target position continually if we're fighting so we don't pingpong
         if (Svc.Condition[ConditionFlag.InCombat] && Svc.Targets.Target != null)
         {
-            TargetPos = Svc.Targets.Target.Position;
-            if ((Config.StayInMeleeRange && Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && DistanceToTarget() > 6)
+            var target = Svc.Targets.Target;
+            TargetPos = target.Position;
+            if ((Config.StayInMeleeRange && Config.AutoMoveToMobs) && !IsInMeleeRange(target.HitboxRadius))
             {
-                P.Navmesh.PathfindAndMoveTo(Svc.Targets.Target.Position, false);
+                P.Navmesh.PathfindAndMoveTo(TargetPos, false);
                 return;
             }
         }
@@ -295,7 +296,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             Svc.Targets.Target = target;
             TargetPos = target.Position;
         }
-        if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && DistanceToTarget() > 4)
+        if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && !IsInMeleeRange(target.HitboxRadius))
         {
             P.Navmesh.PathfindAndMoveTo(TargetPos, false);
             return;
@@ -359,6 +360,11 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
     private unsafe float DistanceToFate() => Vector3.Distance(CurrentFate->Location, Svc.ClientState.LocalPlayer!.Position);
     private unsafe float DistanceToTarget() => Vector3.Distance(TargetPos, Svc.ClientState.LocalPlayer!.Position);
+
+    //Will be negative if inside hitbox
+    private unsafe float DistanceToHitboxEdge(float hitboxRadius) => DistanceToTarget() - hitboxRadius;
+    private unsafe bool IsInMeleeRange(float hitboxRadius)
+        => DistanceToHitboxEdge(hitboxRadius) < 2;
     public unsafe Vector3 GetRandomPointInFate(ushort fateID)
     {
         var fate = FateManager.Instance()->GetFateById(fateID);
