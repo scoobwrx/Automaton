@@ -207,7 +207,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
         if (P.Navmesh.IsRunning())
         {
-            if (DistanceToTarget() < 2 || (Svc.Targets.Target != null && IsInMeleeRange(Svc.Targets.Target!.HitboxRadius)))
+            if (DistanceToTarget() < 2 || (Svc.Targets.Target != null && DistanceToHitboxEdge(Svc.Targets.Target.HitboxRadius) <= 0))
                 P.Navmesh.Stop();
             else
                 return;
@@ -291,6 +291,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
     private void TargetAndMoveToEnemy(IGameObject target)
     {
+        if (Svc.Condition[ConditionFlag.Mounted]) ExecuteDismount();
         TargetPos = target.Position;
         if ((Config.FullAuto || Config.AutoTarget) && Svc.Targets.Target?.GameObjectId != target.GameObjectId)
         {
@@ -338,7 +339,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         && x.SubKind == (byte)BattleNpcSubKind.Enemy
         && (x.Struct() != null && x.Struct()->FateId == FateID) && Math.Sqrt(Math.Pow(x.Position.X - CurrentFate->Location.X, 2) + Math.Pow(x.Position.Z - CurrentFate->Location.Z, 2)) < CurrentFate->Radius)
         // Prioritize Forlorns if configured
-        .OrderByDescending(x => Config.PrioritizeForlorns && (ForlornIDs.Contains(x.DataId) || x.Name.ToString() == "The Forlorn"))
+        .OrderByDescending(x => Config.PrioritizeForlorns && ForlornIDs.Contains(x.DataId))
         // Prioritize enemies targeting us
         .ThenByDescending(x => x.IsTargetingPlayer())
         // Deprioritize mobs in combat with other players (hopefully avoid botlike pingpong behavior in trash fates)
