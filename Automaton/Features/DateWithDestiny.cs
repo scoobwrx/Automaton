@@ -198,7 +198,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         {
             var target = Svc.Targets.Target;
             TargetPos = target.Position;
-            if (Config.StayInMeleeRange && (Config.FullAuto || Config.AutoMoveToMobs) && !IsInMeleeRange(target.HitboxRadius))
+            if ((Config.FullAuto || Config.AutoMoveToMobs) && !IsInMeleeRange(target.HitboxRadius + (Config.StayInMeleeRange ? 0 : 15)))
             {
                 TargetAndMoveToEnemy(target);
                 return;
@@ -207,7 +207,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
         if (P.Navmesh.IsRunning())
         {
-            if (DistanceToTarget() < 2 || (Svc.Targets.Target != null && DistanceToHitboxEdge(Svc.Targets.Target.HitboxRadius) <= 0))
+            if (DistanceToTarget() < 2 || (Svc.Targets.Target != null && DistanceToHitboxEdge(Svc.Targets.Target.HitboxRadius) <= (Config.StayInMeleeRange ? 0 : 15)))
                 P.Navmesh.Stop();
             else
                 return;
@@ -297,7 +297,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         {
             Svc.Targets.Target = target;
         }
-        if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && !IsInMeleeRange(target.HitboxRadius))
+        if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && !IsInMeleeRange(target.HitboxRadius + (Config.StayInMeleeRange ? 0 : 15)))
         {
             P.Navmesh.PathfindAndMoveTo(TargetPos, false);
         }
