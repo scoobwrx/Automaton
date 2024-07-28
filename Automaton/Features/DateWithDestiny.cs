@@ -344,10 +344,10 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         .ThenByDescending(x => x.IsTargetingPlayer())
         // Deprioritize mobs in combat with other players (hopefully avoid botlike pingpong behavior in trash fates)
         .ThenBy(x => IsTaggedByOther(x) && !x.IsTargetingPlayer())
+        // Prioritize closest enemy        
+        .ThenBy(x => Math.Floor(Vector3.Distance(Player.Position, x.Position)))
         // Prioritize lowest HP enemy
         .ThenBy(x => (x as ICharacter)?.CurrentHp)
-        // Prioritize closest enemy        
-        .ThenBy(x => Vector3.Distance(Player.Position, x.Position))
         .FirstOrDefault();
 
     private unsafe uint CurrentCompanion => Svc.ClientState.LocalPlayer!.Character()->CompanionObject->Character.GameObject.BaseId;
