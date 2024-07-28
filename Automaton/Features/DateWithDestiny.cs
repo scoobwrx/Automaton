@@ -114,7 +114,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         .Zip(YokaiZones, (wxy, z) => (wxy.Minion, wxy.Medal, wxy.Weapon, z))
         .ToList();
 
-    private static readonly uint[] ForlornIDs = [7586];
+    private static readonly uint[] ForlornIDs = [7586, 7587];
     private static readonly uint[] TwistOfFateStatusIDs = [1288, 1289];
 
     private ushort nextFateID;
@@ -198,7 +198,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         {
             var target = Svc.Targets.Target;
             TargetPos = target.Position;
-            if (Config.StayInMeleeRange && (Config.FullAuto || Config.AutoMoveToMobs) && !IsInMeleeRange(target.HitboxRadius))
+            if ((Config.FullAuto || Config.AutoMoveToMobs) && !IsInMeleeRange(target.HitboxRadius + (Config.StayInMeleeRange ? 0 : 15)))
             {
                 TargetAndMoveToEnemy(target);
                 return;
@@ -207,7 +207,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
         if (P.Navmesh.IsRunning())
         {
-            if (DistanceToTarget() < 2 || (Svc.Targets.Target != null && DistanceToHitboxEdge(Svc.Targets.Target.HitboxRadius) <= 0))
+            if (DistanceToTarget() < 2 || (Svc.Targets.Target != null && DistanceToHitboxEdge(Svc.Targets.Target.HitboxRadius) <= (Config.StayInMeleeRange ? 0 : 15)))
                 P.Navmesh.Stop();
             else
                 return;
@@ -297,7 +297,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         {
             Svc.Targets.Target = target;
         }
-        if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && !IsInMeleeRange(target.HitboxRadius))
+        if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && !IsInMeleeRange(target.HitboxRadius + (Config.StayInMeleeRange ? 0 : 15)))
         {
             P.Navmesh.PathfindAndMoveTo(TargetPos, false);
         }
@@ -344,10 +344,10 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         .ThenByDescending(x => x.IsTargetingPlayer())
         // Deprioritize mobs in combat with other players (hopefully avoid botlike pingpong behavior in trash fates)
         .ThenBy(x => IsTaggedByOther(x) && !x.IsTargetingPlayer())
+        // Prioritize closest enemy        
+        .ThenBy(x => Math.Floor(Vector3.Distance(Player.Position, x.Position)))
         // Prioritize lowest HP enemy
         .ThenBy(x => (x as ICharacter)?.CurrentHp)
-        // Prioritize closest enemy        
-        .ThenBy(x => Vector3.Distance(Player.Position, x.Position))
         .FirstOrDefault();
 
     private unsafe uint CurrentCompanion => Svc.ClientState.LocalPlayer!.Character()->CompanionObject->Character.GameObject.BaseId;
