@@ -20,9 +20,6 @@ namespace Automaton.Utilities;
 
 public unsafe static class Player
 {
-    private delegate void SetPosition(float x, float y, float z);
-    private static SetPosition _setPosition = null!;
-
     public static IPlayerCharacter Object => Svc.ClientState.LocalPlayer;
     public static bool Available => Svc.ClientState.LocalPlayer != null;
     public static bool Interactable => Available && Object.IsTargetable;

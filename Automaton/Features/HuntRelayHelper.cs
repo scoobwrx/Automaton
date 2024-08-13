@@ -41,6 +41,7 @@ public class HuntRelayHelperConfiguration
     [BoolConfig] public bool OnlySendLocalHuntsToLocalChannels = true;
     [BoolConfig] public bool AssumeBlankWorldsAreLocal = false;
     [BoolConfig] public bool DontRepeatRelays = true;
+    [BoolConfig] public bool OverrideMinionFlag = true;
     [BoolConfig] public bool AllowPartialWorldMatches = false;
     [BoolConfig] public bool DryRun = false;
     [StringConfig] public string ChatMessagePattern = "[<world>] <type> -> <flag>";
@@ -125,6 +126,9 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
 
         ImGui.Checkbox("Don't repeat relays", ref Config.DontRepeatRelays);
         ImGuiComponents.HelpMarker("Don't send relays to the channel in which you clicked the relay payload.");
+
+        //ImGui.Checkbox("Override minion flags", ref Config.OverrideMinionFlag);
+        //ImGuiComponents.HelpMarker("Override minion relay flags with the location of the SS Rank");
 
         ImGui.Checkbox("Allow partial world matching", ref Config.AllowPartialWorldMatches);
         ImGuiComponents.HelpMarker("This will allow matching shorthands of worlds (e.g. \"behe\" -> Behemoth) but may result in false positives.");

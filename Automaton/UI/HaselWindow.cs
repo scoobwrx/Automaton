@@ -207,8 +207,7 @@ public partial class HaselWindow
             {
                 ImGuiHelpers.SafeTextColoredWrapped(Colors.Grey2, $"{entry.InternalName}:");
                 ImGui.SameLine();
-                ImGuiHelpers.ClickToCopyText(entry.Repo);
-                if (ImGui.IsItemHovered()) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+                ImGuiEx.TextCopy(entry.Repo);
             }
         }
 

@@ -158,11 +158,10 @@ public partial class Commands : Tweak<CommandsConfiguration>
     internal unsafe void OnCommandUseItem(string command, string arguments)
     {
         if (!uint.TryParse(arguments, out var itemId)) return;
-        var agent = AgentInventoryContext.Instance();
+        var agent = ActionManager.Instance();
         if (agent == null) return;
 
-        var item = Inventory.GetItemInInventory(itemId, Inventory.PlayerInventory);
-        agent->UseItem(item->ItemId);
+        agent->UseAction(itemId >= 2_000_000 ? ActionType.KeyItem : ActionType.Item, itemId, extraParam: 65535);
     }
     #endregion
 

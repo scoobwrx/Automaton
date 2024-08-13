@@ -1,6 +1,5 @@
 using Dalamud.Interface.Windowing;
 using Dalamud.Utility;
-using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
 
@@ -17,12 +16,8 @@ internal class DebugWindow : Window
         };
     }
 
-    public static void Dispose()
-    {
+    public static void Dispose() { }
 
-    }
-
-    private int id;
     public unsafe override void Draw()
     {
         var agent = AgentMap.Instance();

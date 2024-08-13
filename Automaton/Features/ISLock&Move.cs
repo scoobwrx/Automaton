@@ -22,7 +22,6 @@ public unsafe class ISLockAndMove : Tweak
         Svc.Condition.ConditionChange -= CheckToLockAndMove;
     }
 
-    private bool lockingOn;
     private unsafe void CheckToJump(IFramework framework)
     {
         if (Svc.Targets.Target == null || Svc.Targets.Target.ObjectKind != Dalamud.Game.ClientState.Objects.Enums.ObjectKind.CardStand)
@@ -59,9 +58,9 @@ public unsafe class ISLockAndMove : Tweak
 
                 if (MJIManager.Instance()->CurrentMode == 1)
                 {
-                    TaskManager.Enqueue(() => { lockingOn = true; Chat.Instance.SendMessage("/lockon on"); });
+                    TaskManager.Enqueue(() => { Chat.Instance.SendMessage("/lockon on"); });
                     TaskManager.EnqueueDelay(new Random().Next(100, 250));
-                    TaskManager.Enqueue(() => { if (Player.IsTargetLocked) { Chat.Instance.SendMessage("/automove on"); lockingOn = false; } });
+                    TaskManager.Enqueue(() => { if (Player.IsTargetLocked) { Chat.Instance.SendMessage("/automove on"); } });
                 }
             });
         }

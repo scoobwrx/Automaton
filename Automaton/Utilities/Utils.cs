@@ -165,44 +165,4 @@ public static class Utils
         var sibNode = node->PrevSiblingNode;
         return sibNode != null ? GetNodeByIDChain(sibNode, ids) : null;
     }
-
-    public static unsafe bool GetUnitBase(string name, out AtkUnitBase* unitBase, int index = 1)
-    {
-        unitBase = GetUnitBase(name, index);
-        return unitBase != null;
-    }
-
-    public static unsafe AtkUnitBase* GetUnitBase(string name, int index = 1) => (AtkUnitBase*)Svc.GameGui.GetAddonByName(name, index);
-
-    public static unsafe T* GetUnitBase<T>(string? name = null, int index = 1) where T : unmanaged
-    {
-        if (string.IsNullOrEmpty(name))
-        {
-            var attr = (Addon)typeof(T).GetCustomAttribute(typeof(Addon));
-            if (attr != null)
-            {
-                name = attr.AddonIdentifiers.FirstOrDefault();
-            }
-        }
-
-        return string.IsNullOrEmpty(name) ? null : (T*)Svc.GameGui.GetAddonByName(name, index);
-    }
-
-    public static unsafe bool GetUnitBase<T>(out T* unitBase, string? name = null, int index = 1) where T : unmanaged
-    {
-        unitBase = null;
-        if (string.IsNullOrEmpty(name))
-        {
-            var attr = (Addon)typeof(T).GetCustomAttribute(typeof(Addon));
-            if (attr != null)
-            {
-                name = attr.AddonIdentifiers.FirstOrDefault();
-            }
-        }
-
-        if (string.IsNullOrEmpty(name)) return false;
-
-        unitBase = (T*)Svc.GameGui.GetAddonByName(name, index);
-        return unitBase != null;
-    }
 }

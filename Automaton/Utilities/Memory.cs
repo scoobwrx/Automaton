@@ -6,6 +6,7 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using System.Runtime.InteropServices;
 
 namespace Automaton.Utilities;
+#pragma warning disable CS0649
 internal unsafe class Memory
 {
     public unsafe delegate void RidePillionDelegate(BattleChara* target, int seatIndex);

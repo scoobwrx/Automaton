@@ -3,6 +3,7 @@ using ECommons.EzIpcManager;
 namespace Automaton.IPC;
 
 #nullable disable
+#pragma warning disable CS0649
 internal class QoLBarIPC
 {
     public static string Name = "QoLBar";
