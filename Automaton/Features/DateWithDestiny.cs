@@ -18,13 +18,14 @@ namespace Automaton.Features;
 
 public class DateWithDestinyConfiguration
 {
-    public List<uint> blacklist = [];
-    public List<uint> whitelist = [];
+    public HashSet<uint> blacklist = [];
+    public HashSet<uint> whitelist = [];
     public List<uint> zones = [];
     [BoolConfig] public bool YokaiMode;
     [BoolConfig] public bool StayInMeleeRange;
     [BoolConfig] public bool PrioritizeForlorns = true;
     [BoolConfig] public bool PrioritizeBonusFates = true;
+    [BoolConfig] public bool PrioritizeStartedFates;
     [BoolConfig(DependsOn = nameof(PrioritizeBonusFates))] public bool BonusWhenTwist = false;
     [BoolConfig] public bool EquipWatch = true;
     [BoolConfig] public bool SwapMinions = true;
@@ -37,9 +38,9 @@ public class DateWithDestinyConfiguration
     [BoolConfig(DependsOn = nameof(FullAuto))] public bool AutoSync = true;
     [BoolConfig(DependsOn = nameof(FullAuto))] public bool AutoTarget = true;
     [BoolConfig(DependsOn = nameof(FullAuto))] public bool AutoMoveToMobs = true;
-    [FloatConfig(DefaultValue = 900)] public float MaxDuration = 900;
-    [FloatConfig(DefaultValue = 120)] public float MinTimeRemaining = 120;
-    [FloatConfig(DefaultValue = 90)] public float MaxProgress = 90;
+    [IntConfig(DefaultValue = 900)] public int MaxDuration = 900;
+    [IntConfig(DefaultValue = 120)] public int MinTimeRemaining = 120;
+    [IntConfig(DefaultValue = 90)] public int MaxProgress = 90;
 
     [BoolConfig] public bool ShowFateTimeRemaining;
     [BoolConfig] public bool ShowFateBonusIndicator;
@@ -148,6 +149,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             ImGui.Checkbox("Only with Twist of Fate", ref Config.BonusWhenTwist);
         }
         ImGui.Unindent();
+        ImGui.Checkbox("Prioritize fates that have progress already (up to configured limit)", ref Config.PrioritizeStartedFates);
         ImGui.Checkbox("Always close to melee range of target", ref Config.StayInMeleeRange);
         ImGui.Checkbox("Full Auto Mode", ref Config.FullAuto);
         if (ImGui.IsItemHovered()) ImGui.SetTooltip($"All the below options will be treated as true if this is enabled.");
@@ -164,15 +166,15 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         ImGui.Unindent();
 
         ImGuiX.DrawSection("Fate Options");
-        ImGui.DragFloat("Max Duration (s)", ref Config.MaxDuration);
+        ImGui.DragInt("Max Duration (s)", ref Config.MaxDuration);
         ImGui.SameLine();
         ImGuiX.ResetButton(ref Config.MaxDuration, 900);
 
-        ImGui.DragFloat("Min Time Remaining (s)", ref Config.MinTimeRemaining);
+        ImGui.DragInt("Min Time Remaining (s)", ref Config.MinTimeRemaining);
         ImGui.SameLine();
         ImGuiX.ResetButton(ref Config.MinTimeRemaining, 120);
 
-        ImGui.DragFloat("Max Progress (%)", ref Config.MaxProgress);
+        ImGui.DragInt("Max Progress (%)", ref Config.MaxProgress, 1, 0, 100);
         ImGui.SameLine();
         ImGuiX.ResetButton(ref Config.MaxProgress, 90);
 
@@ -324,6 +326,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         !Config.BonusWhenTwist
         || Player.Status.FirstOrDefault(x => TwistOfFateStatusIDs.Contains(x.StatusId)) != null)
         )
+        .ThenByDescending(x => Config.PrioritizeStartedFates && x.Progress > 0)
         .ThenBy(f => Vector3.Distance(Player.Position, f.Position));
     public bool FateConditions(IFate f) => f.GameData.Rule == 1 && f.State != FateState.Preparation && f.Duration <= Config.MaxDuration && f.Progress <= Config.MaxProgress && f.TimeRemaining > Config.MinTimeRemaining && !Config.blacklist.Contains(f.FateId);
 
