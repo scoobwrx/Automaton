@@ -236,16 +236,26 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
             if (!enabled) continue;
             // TODO: add a check to see if the player is in novice network before sending
             // TODO: add a crystalline conflict check since non-premade messages can't be sent to any channel then
+            // TODO: add a DD check
             if ((XivChatType)payload.OriginChannel == channel && Config.DontRepeatRelays) continue;
             if (channel.GetAttribute<XivChatTypeInfoAttribute>()!.FancyName.StartsWith("Linkshell") && Player.CurrentWorld != Player.HomeWorld) continue;
             if (islocal && Player.Object.CurrentWorld.GameData != payload.World && Config.OnlySendLocalHuntsToLocalChannels) continue;
 
             TaskManager.EnqueueDelay(500);
-#pragma warning disable CS0618 // Type or member is obsolete
             if (Config.DryRun)
                 TaskManager.Enqueue(() => Svc.Chat.Print(new XivChatEntry() { Type = (XivChatType)payload.OriginChannel, Message = $"[DRY RUN] {relay.BuiltString}" }));
             else
-                TaskManager.Enqueue(() => Chat.Instance.SendMessageUnsafe(Encoding.UTF8.GetBytes($"/{command} {relay.BuiltString}")));
+#pragma warning disable CS0618 // Type or member is obsolete
+                // enqueue player not being null to queue up messages if you're travelling between zones
+                TaskManager.Enqueue(() =>
+                {
+                    if (Player.Available)
+                    {
+                        Chat.Instance.SendMessageUnsafe(Encoding.UTF8.GetBytes($"/{command} {relay.BuiltString}"));
+                        return true;
+                    }
+                    else return false;
+                });
 #pragma warning restore CS0618 // Type or member is obsolete
         }
     }
@@ -261,9 +271,9 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
             {
                 case "<flag>":
                     if (Instance != default)
-                        sb.Append(SeString.CreateMapLinkWithInstance(MapLink.TerritoryType.RowId, MapLink.Map.RowId, (int?)Instance, MapLink.RawX, MapLink.RawY));
+                        sb.AddSeString(SeString.CreateMapLinkWithInstance(MapLink.TerritoryType.RowId, MapLink.Map.RowId, (int?)Instance, MapLink.RawX, MapLink.RawY));
                     else
-                        sb.Append(SeString.CreateMapLink(MapLink.TerritoryType.RowId, MapLink.Map.RowId, MapLink.RawX, MapLink.RawY));
+                        sb.AddSeString(SeString.CreateMapLink(MapLink.TerritoryType.RowId, MapLink.Map.RowId, MapLink.RawX, MapLink.RawY));
                     break;
                 case "<world>":
                     sb.AddText(World.Name);

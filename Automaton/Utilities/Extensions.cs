@@ -1,3 +1,4 @@
+using Dalamud.Game.Text.SeStringHandling;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using FFXIVClientStructs.STD;
 using System.Drawing;
@@ -93,4 +94,11 @@ public static partial class Extensions
         ValueType.ManagedVector => "[Managed Vector]",
         _ => $"Unknown Type: {v.Type}"
     };
+
+    public static void AddRange(this SeStringBuilder builder, IEnumerable<Payload> payloads)
+    {
+        foreach (var payload in payloads) { builder.Add(payload); }
+    }
+    public static void AddSeString(this SeStringBuilder builder, SeString str) => builder.AddRange(str.Payloads);
+
 }
