@@ -243,15 +243,14 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
 
             TaskManager.EnqueueDelay(500);
             if (Config.DryRun)
-                TaskManager.Enqueue(() => Svc.Chat.Print(new XivChatEntry() { Type = (XivChatType)payload.OriginChannel, Message = $"[DRY RUN] {relay.BuiltString}" }));
+                TaskManager.Enqueue(() => Svc.Chat.Print(new XivChatEntry() { Type = (XivChatType)payload.OriginChannel, Message = new SeStringBuilder().AddText("[DRY RUN] ").Append(relay.BuiltString).BuiltString }));
             else
 #pragma warning disable CS0618 // Type or member is obsolete
-                // enqueue player not being null to queue up messages if you're travelling between zones
                 TaskManager.Enqueue(() =>
                 {
-                    if (Player.Available)
+                    if (Player.Available) // messages can't be set when travelling between zones where your player goes null
                     {
-                        Chat.Instance.SendMessageUnsafe(Encoding.UTF8.GetBytes($"/{command} {relay.BuiltString}"));
+                        Chat.Instance.SendMessageUnsafe([.. Encoding.UTF8.GetBytes($"/{command} "), .. relay.Build().Encode()]);
                         return true;
                     }
                     else return false;
