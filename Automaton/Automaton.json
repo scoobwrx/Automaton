@@ -1,8 +1,8 @@
 {
-    "Author": "Croizat",
+    "Author": "croizat",
     "Name": "Automaton",
-    "Punchline": "Extra illegal",
-    "Description": "It's like the other tweak collection plugins, but different.",
+    "Punchline": "Yet another tweaks collection plugin.",
+    "Description": "",
     "InternalName": "Automaton",
     "ApplicableVersion": "any",
     "DalamudApiLevel": 10,
