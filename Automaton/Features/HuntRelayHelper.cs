@@ -265,7 +265,6 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
         var pattern = "(?i)(<flag>|<world>|<type>)";
         var splitMsg = Regex.Split(Config.ChatMessagePattern, pattern);
         var sb = new Lumina.Text.SeStringBuilder();
-        if (Config.DryRun) sb.Append("[DRY RUN] ");
         foreach (var s in splitMsg)
         {
             switch (s)
