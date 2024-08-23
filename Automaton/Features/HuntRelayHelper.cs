@@ -150,8 +150,8 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
         }
         ImGui.Unindent();
 
-        ImGui.Checkbox("Dry run", ref Config.DryRun);
-        ImGuiComponents.HelpMarker("Enabling this will print the messages to chat without actually sending them to the server. This is just for testing.");
+        //ImGui.Checkbox("Dry run", ref Config.DryRun);
+        //ImGuiComponents.HelpMarker("Enabling this will print the messages to chat without actually sending them to the server. This is just for testing.");
 
         ImGuiX.DrawSection("Chat Message Pattern");
         ImGui.InputText($"##{nameof(Config.ChatMessagePattern)}", ref Config.ChatMessagePattern, 64);
@@ -246,61 +246,63 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
             if (islocal && Player.Object.CurrentWorld.GameData != payload.World && Config.OnlySendLocalHuntsToLocalChannels) continue;
 
             TaskManager.EnqueueDelay(500);
-            if (Config.DryRun)
-                TaskManager.Enqueue(() => Svc.Chat.Print(new XivChatEntry() { Type = (XivChatType)payload.OriginChannel, Message = new SeStringBuilder().AddText("[DRY RUN] ").Append(relay.BuiltString).BuiltString }));
-            else
 #pragma warning disable CS0618 // Type or member is obsolete
-                TaskManager.Enqueue(() =>
+            TaskManager.Enqueue(() =>
+            {
+                if (Player.Available) // messages can't be sent when travelling between zones where your player goes null
                 {
-                    if (Player.Available) // messages can't be set when travelling between zones where your player goes null
-                    {
-                        //Chat.Instance.SendMessageUnsafe([.. Encoding.UTF8.GetBytes($"/{command} "), .. relay.Build().Encode()]);
-                        Chat.Instance.SendMessageUnsafe(Encoding.UTF8.GetBytes($"/{command} {relay.BuiltString}"));
-                        return true;
-                    }
-                    else return false;
-                });
+                    Chat.Instance.SendMessageUnsafe([.. Encoding.UTF8.GetBytes($"/{command} "), .. relay.ToArray()]);
+                    return true;
+                }
+                else return false;
+            });
 #pragma warning restore CS0618 // Type or member is obsolete
         }
     }
 
-    private SeStringBuilder BuildRelayMessage(MapLinkPayload MapLink, World World, uint? Instance, uint RelayType)
+    private Lumina.Text.SeStringBuilder BuildRelayMessage(MapLinkPayload MapLink, World World, uint? Instance, uint RelayType)
     {
         var pattern = "(?i)(<flag>|<world>|<type>)";
         var splitMsg = Regex.Split(Config.ChatMessagePattern, pattern);
-        var sb = new SeStringBuilder();
+        var sb = new Lumina.Text.SeStringBuilder();
+        if (Config.DryRun) sb.Append("[DRY RUN] ");
         foreach (var s in splitMsg)
         {
             switch (s)
             {
                 case "<flag>":
-                    if (Instance != default)
-                        sb.AddSeString(SeString.CreateMapLinkWithInstance(MapLink.TerritoryType.RowId, MapLink.Map.RowId, (int?)Instance, MapLink.RawX, MapLink.RawY));
-                    else
-                        sb.AddSeString(SeString.CreateMapLink(MapLink.TerritoryType.RowId, MapLink.Map.RowId, MapLink.RawX, MapLink.RawY));
+                    sb.BeginMacro(Lumina.Text.Payloads.MacroCode.Fixed)
+                        .AppendIntExpression(200)
+                        .AppendIntExpression(3)
+                        .AppendUIntExpression(MapLink.TerritoryType.RowId) // territory
+                        .AppendUIntExpression(Instance is not null or 0 ? MapLink.Map.RowId | ((uint)Instance << 16) : MapLink.Map.RowId) // map or (map | (instance << 16))
+                        .AppendIntExpression(MapLink.RawX) // x -> (int)(MathF.Round(posX, 3, MidpointRounding.AwayFromZero) * 1000)
+                        .AppendIntExpression(MapLink.RawY) // y
+                        .AppendIntExpression(-30000) // z or -30000 for no z
+                        .EndMacro();
                     break;
                 case "<world>":
-                    sb.AddText(World.Name);
+                    sb.Append(World.Name);
                     break;
                 case "<type>":
                     switch (RelayType)
                     {
                         case (uint)RelayTypes.SRank:
-                            sb.AddText(Config.Types[(int)RelayTypes.SRank].TypeFormat);
+                            sb.Append(Config.Types[(int)RelayTypes.SRank].TypeFormat);
                             break;
                         case (uint)RelayTypes.Minions:
-                            sb.AddText(Config.Types[(int)RelayTypes.Minions].TypeFormat);
+                            sb.Append(Config.Types[(int)RelayTypes.Minions].TypeFormat);
                             break;
                         case (uint)RelayTypes.Train:
-                            sb.AddText(Config.Types[(int)RelayTypes.Train].TypeFormat);
+                            sb.Append(Config.Types[(int)RelayTypes.Train].TypeFormat);
                             break;
                         case (uint)RelayTypes.FATE:
-                            sb.AddText(Config.Types[(int)RelayTypes.FATE].TypeFormat);
+                            sb.Append(Config.Types[(int)RelayTypes.FATE].TypeFormat);
                             break;
                     }
                     break;
                 default:
-                    sb.AddText(s);
+                    sb.Append(s);
                     break;
             }
         }
