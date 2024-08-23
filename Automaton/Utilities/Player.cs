@@ -13,6 +13,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.GeneratedSheets;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using static Automaton.Utilities.Enums;
 using PlayerController = Automaton.Utilities.Structs.PlayerController;
 #nullable disable
 
@@ -41,6 +42,7 @@ public unsafe static class Player
 
     public static PlayerController* Controller => (PlayerController*)Svc.SigScanner.GetStaticAddressFromSig("48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 3C 01 75 1E 48 8D 0D");
     public static uint Territory => Svc.ClientState.TerritoryType;
+    public static TerritoryIntendedUseEnum TerritoryIntendedUse => (TerritoryIntendedUseEnum)GetRow<TerritoryType>(Territory).TerritoryIntendedUse;
     public static bool InDuty => GameMain.Instance()->CurrentContentFinderConditionId != 0;
     public static bool HasPenalty => FFXIVClientStructs.FFXIV.Client.Game.UI.InstanceContent.Instance()->GetPenaltyRemainingInMinutes(0) > 0;
     public static Vector3 Position { get => Object.Position; set => GameObject->SetPosition(value.X, value.Y, value.Z); }

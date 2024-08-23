@@ -5,12 +5,14 @@ using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Utility;
 using ECommons.Automation;
+using ECommons.ExcelServices;
 using ECommons.ImGuiMethods;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
 using System.Data;
 using System.Text;
 using System.Text.RegularExpressions;
+using static Automaton.Utilities.Enums;
 using static Dalamud.Game.Text.XivChatType;
 
 namespace Automaton.Features;
@@ -235,8 +237,7 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
         {
             if (!enabled) continue;
             // TODO: add a check to see if the player is in novice network before sending
-            // TODO: add a crystalline conflict check since non-premade messages can't be sent to any channel then
-            // TODO: add a DD check
+            if (Player.TerritoryIntendedUse is TerritoryIntendedUseEnum.Deep_Dungeon or TerritoryIntendedUseEnum.Crystalline_Conflict or TerritoryIntendedUseEnum.Crystalline_Conflict_2) continue;
             if ((XivChatType)payload.OriginChannel == channel && Config.DontRepeatRelays) continue;
             if (channel.GetAttribute<XivChatTypeInfoAttribute>()!.FancyName.StartsWith("Linkshell") && Player.CurrentWorld != Player.HomeWorld) continue;
             if (islocal && Player.Object.CurrentWorld.GameData != payload.World && Config.OnlySendLocalHuntsToLocalChannels) continue;

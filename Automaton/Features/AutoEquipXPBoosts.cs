@@ -1,4 +1,6 @@
-﻿namespace Automaton.Features;
+﻿using ECommons.ExcelServices;
+
+namespace Automaton.Features;
 
 [Tweak]
 internal class AutoEquipXPBoosts : Tweak
@@ -12,6 +14,7 @@ internal class AutoEquipXPBoosts : Tweak
     private unsafe void CheckForLevelSync(IFramework framework)
     {
         if (!Player.IsLevelSynced || Player.SyncedLevel == 0 || IsOccupied()) return;
+        if (Player.TerritoryIntendedUse is not (TerritoryIntendedUseEnum.Dungeon or TerritoryIntendedUseEnum.Raid or TerritoryIntendedUseEnum.Raid_2 or TerritoryIntendedUseEnum.Alliance_Raid)) return;
 
         if (Player.SyncedLevel <= 90)
             if (Inventory.HasItem(41081))
