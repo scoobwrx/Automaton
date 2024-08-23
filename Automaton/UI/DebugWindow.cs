@@ -1,8 +1,5 @@
 using Dalamud.Interface.Windowing;
-using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Game;
-using FFXIVClientStructs.FFXIV.Client.Game.UI;
-using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
 
 namespace Automaton.UI;

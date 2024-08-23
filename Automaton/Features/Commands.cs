@@ -3,8 +3,6 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using FFXIVClientStructs.Interop;
 using Lumina.Excel.GeneratedSheets;
-using System.Runtime.InteropServices;
-using static FFXIVClientStructs.FFXIV.Client.UI.Agent.AgentPurify;
 using GC = ECommons.ExcelServices.GrandCompany;
 using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.ValueType;
 

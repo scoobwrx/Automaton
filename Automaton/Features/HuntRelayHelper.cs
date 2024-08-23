@@ -12,7 +12,6 @@ using Lumina.Excel.GeneratedSheets;
 using System.Data;
 using System.Text;
 using System.Text.RegularExpressions;
-using static Automaton.Utilities.Enums;
 using static Dalamud.Game.Text.XivChatType;
 
 namespace Automaton.Features;

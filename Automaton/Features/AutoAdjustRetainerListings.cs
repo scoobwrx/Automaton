@@ -1,6 +1,5 @@
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
-using Dalamud.Interface;
 using ECommons;
 using ECommons.Automation;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -9,7 +8,6 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using ImGuiNET;
-using Lumina.Excel.GeneratedSheets;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 

@@ -1,4 +1,3 @@
-using Automaton.IPC;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Hooking;

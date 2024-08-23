@@ -3,7 +3,6 @@ using ECommons;
 using ECommons.GameFunctions;
 using ECommons.Interop;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
-using System.Runtime.InteropServices;
 
 namespace Automaton.Features;
 
