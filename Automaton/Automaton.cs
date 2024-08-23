@@ -107,7 +107,14 @@ public class Automaton : IDalamudPlugin
         foreach (var tweakType in GetType().Assembly.GetTypes().Where(type => type.Namespace == "Automaton.Features" && type.GetCustomAttribute<TweakAttribute>() != null))
         {
             Svc.Log.Verbose($"Initializing {tweakType.Name}");
-            TryExecute(() => Tweaks.Add((Tweak)Activator.CreateInstance(tweakType)!));
+            try
+            {
+                Tweaks.Add((Tweak)Activator.CreateInstance(tweakType)!);
+            }
+            catch (Exception ex)
+            {
+                Svc.Log.Error($"Failed to initialize {tweakType.Name}", ex);
+            }
         }
 
         foreach (var tweak in Tweaks)

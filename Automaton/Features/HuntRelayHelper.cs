@@ -231,12 +231,16 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
     {
         var payload = link.Payloads.OfType<RawPayload>().Select(RelayPayload.Parse).FirstOrDefault(x => x != default);
         if (payload == default) { Svc.Log.Error($"Failed to parse {nameof(RelayPayload)}"); return; }
+        if (Player.TerritoryIntendedUse is TerritoryIntendedUseEnum.Crystalline_Conflict or TerritoryIntendedUseEnum.Crystalline_Conflict_2 or TerritoryIntendedUseEnum.Deep_Dungeon)
+        {
+            Svc.Log.Info($"Relay link ignored; Player in territory {Player.Territory} ({Player.TerritoryIntendedUse}) where chat is not permitted.");
+            return;
+        }
         var relay = BuildRelayMessage(payload.MapLink, payload.World, payload.Instance, payload.RelayType);
         foreach (var (channel, command, islocal, enabled) in Config.Channels)
         {
             if (!enabled) continue;
             // TODO: add a check to see if the player is in novice network before sending
-            if (Player.TerritoryIntendedUse is TerritoryIntendedUseEnum.Deep_Dungeon or TerritoryIntendedUseEnum.Crystalline_Conflict or TerritoryIntendedUseEnum.Crystalline_Conflict_2) continue;
             if ((XivChatType)payload.OriginChannel == channel && Config.DontRepeatRelays) continue;
             if (channel.GetAttribute<XivChatTypeInfoAttribute>()!.FancyName.StartsWith("Linkshell") && Player.CurrentWorld != Player.HomeWorld) continue;
             if (islocal && Player.Object.CurrentWorld.GameData != payload.World && Config.OnlySendLocalHuntsToLocalChannels) continue;
@@ -250,7 +254,8 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
                 {
                     if (Player.Available) // messages can't be set when travelling between zones where your player goes null
                     {
-                        Chat.Instance.SendMessageUnsafe([.. Encoding.UTF8.GetBytes($"/{command} "), .. relay.Build().Encode()]);
+                        //Chat.Instance.SendMessageUnsafe([.. Encoding.UTF8.GetBytes($"/{command} "), .. relay.Build().Encode()]);
+                        Chat.Instance.SendMessageUnsafe(Encoding.UTF8.GetBytes($"/{command} {relay.BuiltString}"));
                         return true;
                     }
                     else return false;
