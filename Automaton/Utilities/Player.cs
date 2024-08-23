@@ -12,8 +12,6 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.GeneratedSheets;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using static Automaton.Utilities.Enums;
 using PlayerController = Automaton.Utilities.Structs.PlayerController;
 #nullable disable
 
