@@ -218,4 +218,15 @@ public static class ImGuiX
         if (elapsedTime >= duration)
             startTime = currentTime;
     }
+
+    public static bool IconButtonEnabledWhen(bool enabled, FontAwesomeIcon icon, string id)
+    {
+        if (!enabled)
+            ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.5f);
+        var result = ImGuiComponents.IconButton(id, icon);
+        if (!enabled)
+            ImGui.PopStyleVar();
+
+        return result && enabled;
+    }
 }

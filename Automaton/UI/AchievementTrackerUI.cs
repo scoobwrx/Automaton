@@ -95,24 +95,33 @@ public unsafe class AchievementTrackerUI : Window
     {
         try
         {
-            foreach (var achv in _tweak.Config.Achievements.ToList())
+            foreach (var a in _tweak.Config.Achievements.ToList().Select((x, i) => new { Achievement = x, Index = i }))
             {
-                if (_tweak.Config.AutoRemoveCompleted && achv.Completed)
+                if (_tweak.Config.AutoRemoveCompleted && a.Achievement.Completed)
                 {
-                    _tweak.Config.Achievements.Remove(achv);
+                    _tweak.Config.Achievements.Remove(a.Achievement);
                     continue;
                 }
+
                 ImGui.Columns(2);
-                ImGuiEx.TextV($"[{achv.ID}] {achv.Name}");
-                if (ImGui.IsItemHovered()) ImGui.SetTooltip($"[{achv.Points}pts] {achv.Description}");
+
+                if (ImGuiX.IconButtonEnabledWhen(a.Index != 0, FontAwesomeIcon.ArrowUp, $"{a.Achievement.ID}"))
+                    (_tweak.Config.Achievements[a.Index], _tweak.Config.Achievements[a.Index - 1]) = (_tweak.Config.Achievements[a.Index - 1], _tweak.Config.Achievements[a.Index]);
+                ImGui.SameLine();
+                if (ImGuiX.IconButtonEnabledWhen(a.Index != _tweak.Config.Achievements.Count - 1, FontAwesomeIcon.ArrowDown, $"{a.Achievement.ID}"))
+                    (_tweak.Config.Achievements[a.Index], _tweak.Config.Achievements[a.Index + 1]) = (_tweak.Config.Achievements[a.Index + 1], _tweak.Config.Achievements[a.Index]);
+
+                ImGui.SameLine();
+                ImGuiEx.TextV($"[{a.Achievement.ID}] {a.Achievement.Name}");
+                if (ImGui.IsItemHovered()) ImGui.SetTooltip($"[{a.Achievement.Points}pts] {a.Achievement.Description}");
 
                 ImGui.NextColumn();
-                ImGuiX.DrawProgressBar((int)achv.CurrentProgress, (int)achv.MaxProgress, _tweak.Config.BarColour);
+                ImGuiX.DrawProgressBar((int)a.Achievement.CurrentProgress, (int)a.Achievement.MaxProgress, _tweak.Config.BarColour);
                 ImGui.SameLine();
                 ImGui.SetCursorPosX(ImGui.GetContentRegionMax().X - ImGuiX.IconUnitWidth() - ImGui.GetStyle().WindowPadding.X);
-                if (ImGuiComponents.IconButton((int)achv.ID, FontAwesomeIcon.Trash))
+                if (ImGuiComponents.IconButton((int)a.Achievement.ID, FontAwesomeIcon.Trash))
                 {
-                    _tweak.Config.Achievements.Remove(achv);
+                    _tweak.Config.Achievements.Remove(a.Achievement);
                 }
                 ImGui.Columns(1);
             }
