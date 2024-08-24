@@ -86,7 +86,7 @@ public class EnhancedDutyStartEnd : Tweak<EnhancedDutyStartEndConfiguration>
         if (!Config.StartMsg.IsNullOrEmpty())
         {
             if (Config.StartMsg.StartsWith('/'))
-                Svc.Commands.ProcessCommand(Config.StartMsg);
+                ECommons.Automation.Chat.Instance.SendMessage(Config.StartMsg);
             else
                 ECommons.Automation.Chat.Instance.SendMessage($"/p {Config.StartMsg}");
         }
@@ -104,7 +104,7 @@ public class EnhancedDutyStartEnd : Tweak<EnhancedDutyStartEndConfiguration>
         if (!Config.EndMsg.IsNullOrEmpty())
         {
             if (Config.EndMsg.StartsWith('/'))
-                Svc.Commands.ProcessCommand(Config.EndMsg);
+                ECommons.Automation.Chat.Instance.SendMessage(Config.EndMsg);
             else
                 ECommons.Automation.Chat.Instance.SendMessage($"/p {Config.EndMsg}");
         }
