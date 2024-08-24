@@ -22,7 +22,7 @@ public class TweakConfigs
     public AchievementTrackerConfiguration AchievementTrackerConfiguration { get; init; } = new();
     public AddresBookConfiguration AddresBook { get; init; } = new();
     public AddresBookDebugConfiguration AddresBookDebug { get; init; } = new();
-    //public ARTurnInConfiguration ARTurnIn { get; init; } = new();
+    public ARTurnInConfiguration ARTurnIn { get; init; } = new();
     //public ARxMBConfiguration ARxMB { get; init; } = new();
     public AutoFollowConfiguration AutoFollow { get; init; } = new();
     public AutoSelectGardeningConfiguration AutoSelectGardening { get; init; } = new();
@@ -37,6 +37,7 @@ public class TweakConfigs
     public GMAlertConfiguration GMAlert { get; init; } = new();
     public HuntRelayHelperConfiguration HuntRelayHelper { get; init; } = new();
     public MarketAdjusterConfiguration MarketAdjuster { get; init; } = new();
+    public SimpleCurrencyAlertConfig SimpleCurrencyAlertConfig { get; init; } = new();
 }
 
 public class YamlFactory : ISerializationFactory
