@@ -7,9 +7,11 @@ public class AutoRetainerIPC
 {
     public const string Name = "AutoRetainer";
     public const string Repo = "https://love.puni.sh/ment.json";
-    public AutoRetainerIPC() => EzIPC.Init(this, "AutoRetainer.PluginState");
+    public AutoRetainerIPC() => EzIPC.Init(this, "AutoRetainer");
     public static bool Installed => Utils.HasPlugin(Name);
 
-    [EzIPC] public readonly Func<bool> IsBusy;
-    [EzIPC] public readonly Func<int> GetInventoryFreeSlotCount;
+    [EzIPC("PluginState.%m")] public readonly Func<bool> IsBusy;
+    [EzIPC("PluginState.%m")] public readonly Func<int> GetInventoryFreeSlotCount;
+    [EzIPC] public readonly Func<bool> GetMultiModeEnabled;
+    [EzIPC] public readonly Action<bool> SetMultiModeEnabled;
 }

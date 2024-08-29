@@ -1,6 +1,13 @@
+using Dalamud;
 using Dalamud.Interface.Windowing;
+using FFXIVClientStructs.Attributes;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.UI;
+using FFXIVClientStructs.FFXIV.Component.GUI;
 using ImGuiNET;
+using System.Diagnostics.Metrics;
+using System.Reflection;
+using System.Runtime.InteropServices;
 
 namespace Automaton.UI;
 
@@ -19,23 +26,81 @@ internal class DebugWindow : Window
 
     public unsafe override void Draw()
     {
-        var agent = MonsterNoteManager.Instance();
-        if (agent == null) return;
-        foreach (var hunt in agent->RankData)
+        for (var i = 0; i < RaptureAtkUnitManager.Instance()->FocusedUnitsList.Count; i++)
         {
-            ImGui.TextUnformatted($"{hunt.Index} {hunt.Rank} {hunt.Flags} {hunt.Unknown2} {hunt.Unknown3}");
-            //foreach (var info in hunt.RankData)
-            //    ImGui.TextUnformatted($"{info.}");
+            var atk = RaptureAtkUnitManager.Instance()->FocusedUnitsList.Entries[i].Value;
+            if (atk == null) continue;
+            var str = GetAddonStruct(atk);
+            if (str == null) continue;
+            ImGuiX.DrawSection($"{atk->NameString} - {str.GetType().Name}");
+            ImGui.Indent();
+            foreach (var f in str.GetType().GetFields())
+            {
+                var type = f.FieldType;
+                ImGui.TextUnformatted($"{f.Name}: {f.FieldType.Name} {f.FieldType.IsPointer} {f.GetValue(str)} {f.Attributes}");
+                if (type.IsPointer)
+                {
+                    var val = (Pointer)f.GetValue(str);
+                    var unboxed = Pointer.Unbox(val);
+                    try
+                    {
+                        var eType = type.GetElementType();
+                        var ptrObj = SafeMemory.PtrToStructure(new IntPtr(unboxed), eType);
+                    }
+                    catch { }
+                }
+            }
+            ImGui.Unindent();
         }
-        //var markers = agent->MiniMapGatheringMarkers;
-        //ImGuiX.DrawSection($"markers: {markers.Length}");
-        //foreach (var marker in markers)
-        //{
-        //    if (marker.MapMarker.IconId == 0) continue;
-        //    ImGui.TextUnformatted($"{marker.MapMarker.X}, {marker.MapMarker.Y}, {marker.MapMarker.IconId} {marker.MapMarker.IconFlags} {marker.MapMarker.SecondaryIconId}");
-        //    ImGui.Indent();
-        //    ImGui.TextUnformatted($"{MapUtil.WorldToMap(new Vector2(marker.MapMarker.X / 16, marker.MapMarker.Y / 16))}");
-        //    ImGui.Unindent();
-        //}
+    }
+
+    private static readonly Dictionary<string, Type?> AddonMapping = [];
+    public static unsafe object? GetAddonStruct(AtkUnitBase* atkUnitBase)
+    {
+        var addonName = atkUnitBase->NameString;
+        object addonObj;
+        if (addonName != null && AddonMapping.ContainsKey(addonName))
+        {
+            if (AddonMapping[addonName] == null)
+            {
+                addonObj = *atkUnitBase;
+            }
+            else
+            {
+                addonObj = Marshal.PtrToStructure(new IntPtr(atkUnitBase), AddonMapping[addonName]);
+            }
+        }
+        else if (addonName != null)
+        {
+            AddonMapping.Add(addonName, null);
+
+            foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                try
+                {
+                    foreach (var t in a.GetTypes())
+                    {
+                        if (!t.IsPublic) continue;
+                        var xivAddonAttr = (Addon)t.GetCustomAttribute(typeof(Addon), false);
+                        if (xivAddonAttr == null) continue;
+                        if (!xivAddonAttr.AddonIdentifiers.Contains(addonName)) continue;
+                        AddonMapping[addonName] = t;
+                        break;
+                    }
+                }
+                catch
+                {
+                    // ignored
+                }
+            }
+
+            addonObj = *atkUnitBase;
+        }
+        else
+        {
+            addonObj = *atkUnitBase;
+        }
+
+        return addonObj;
     }
 }

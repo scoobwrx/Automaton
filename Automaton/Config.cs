@@ -31,6 +31,7 @@ public class TweakConfigs
     public DateWithDestinyConfiguration DateWithDestiny { get; init; } = new();
     public DebugToolsConfiguration DebugTools { get; init; } = new();
     public EnhancedDutyStartEndConfiguration EnhancedDutyStartEnd { get; init; } = new();
+    public EnhancedLoginLogoutConfig EnhancedLoginLogout { get; init; } = new();
     public EnhancedTargetingConfiguration EnhancedTargeting { get; init; } = new();
     public FcChestTabRenameConfiguration FCChestTabRename { get; init; } = new();
     public GettingTooAttachedConfiguration GettingTooAttached { get; init; } = new();
