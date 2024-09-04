@@ -19,7 +19,7 @@ public class AchievementTrackerConfiguration
 public unsafe class AchievementTracker : Tweak<AchievementTrackerConfiguration>
 {
     public override string Name => "Achievement Tracker";
-    public override string Description => $"Adds an achievement tracker.";
+    public override string Description => $"Adds an achievement tracker. Open menu with /atracker.";
 
     public override void DrawConfig()
     {
