@@ -1,4 +1,5 @@
 ﻿using Automaton.IPC;
+using ECommons.Automation.NeoTaskManager;
 using ECommons.ImGuiMethods;
 using ImGuiNET;
 
@@ -66,9 +67,6 @@ internal class ARTurnIn : Tweak<ARTurnInConfiguration>
         if (ImGui.Button($"GoHome"))
             TaskManager.Enqueue(GoHome);
 
-        if (ImGui.Button($"MoveForwards"))
-            TaskManager.Enqueue(MoveForwards);
-
         if (TaskManager.Tasks.Count > 0)
         {
             ImGuiX.DrawSection("Tasks");
@@ -99,30 +97,20 @@ internal class ARTurnIn : Tweak<ARTurnInConfiguration>
 
     private void TurnIn()
     {
-        TaskManager.Enqueue(GoToGC, configuration: new(timeLimitMS: 2 * 60 * 1000));
+        TaskManager.Enqueue(GoToGC, configuration: LSConfig);
         TaskManager.EnqueueDelay(1000);
-        TaskManager.Enqueue(Deliveroo, configuration: new(timeLimitMS: 10 * 60 * 1000, abortOnTimeout: false));
+        TaskManager.Enqueue(Deliveroo, configuration: DConfig);
         TaskManager.EnqueueDelay(1000);
-        TaskManager.Enqueue(GoHome, configuration: new(timeLimitMS: 1 * 60 * 1000));
-        TaskManager.EnqueueDelay(1000);
-        TaskManager.Enqueue(MoveForwards);
+        TaskManager.Enqueue(GoHome, configuration: LSConfig);
         TaskManager.EnqueueDelay(1000);
         TaskManager.Enqueue(P.AutoRetainerAPI.FinishCharacterPostProcess);
     }
 
     // bless lifestream for doing literally all the annoying work for me already
-    private void GoToGC() => TaskManager.InsertMulti([new(() => P.Lifestream.ExecuteCommand("gc")), new(() => P.Lifestream.IsBusy()), new(() => !P.Lifestream.IsBusy())]);
-    private void Deliveroo() => TaskManager.InsertMulti([new(() => Svc.Commands.ProcessCommand("/deliveroo enable")), new(() => P.Deliveroo.IsTurnInRunning()), new(() => !P.Deliveroo.IsTurnInRunning())]);
-    private void GoHome() => TaskManager.InsertMulti([new(P.Lifestream.TeleportToFC), new(() => P.Lifestream.IsBusy()), new(() => !P.Lifestream.IsBusy())]);
+    private void GoToGC() => TaskManager.InsertMulti([new(() => P.Lifestream.ExecuteCommand("gc")), new(() => P.Lifestream.IsBusy()), new(() => !P.Lifestream.IsBusy(), LSConfig)]);
+    private void Deliveroo() => TaskManager.InsertMulti([new(() => Svc.Commands.ProcessCommand("/deliveroo enable")), new(() => P.Deliveroo.IsTurnInRunning()), new(() => !P.Deliveroo.IsTurnInRunning(), DConfig)]);
+    private void GoHome() => TaskManager.InsertMulti([new(P.Lifestream.TeleportToFC), new(() => P.Lifestream.IsBusy()), new(() => !P.Lifestream.IsBusy(), LSConfig)]);
 
-    private unsafe void MoveForwards()
-    {
-        TaskManager.InsertMulti(
-        [
-            new(P.Navmesh.IsReady),
-            new(() => P.Navmesh.PathfindAndMoveTo(P.Navmesh.NearestPoint(Utils.RotatePoint(Player.Object.Position.X, Player.Object.Position.Z, MathF.PI - Player.CameraEx->DirH, Player.Object.Position + new Vector3(0, 0, 5)), 1, 5) ?? Player.Position, false)),
-            new(() => P.Navmesh.IsRunning()),
-            new(() => !P.Navmesh.IsRunning())
-        ]);
-    }
+    private TaskManagerConfiguration LSConfig => new(timeLimitMS: 2 * 60 * 1000);
+    private TaskManagerConfiguration DConfig => new(timeLimitMS: 10 * 60 * 1000, abortOnTimeout: false);
 }
