@@ -30,6 +30,7 @@ public class DateWithDestinyConfiguration
     [BoolConfig] public bool EquipWatch = true;
     [BoolConfig] public bool SwapMinions = true;
     [BoolConfig] public bool SwapZones = true;
+    [BoolConfig] public bool ExchangeVouchers = false;
 
     [BoolConfig] public bool FullAuto = true;
     [BoolConfig(DependsOn = nameof(FullAuto))] public bool AutoMount = true;
@@ -41,6 +42,9 @@ public class DateWithDestinyConfiguration
     [IntConfig(DefaultValue = 900)] public int MaxDuration = 900;
     [IntConfig(DefaultValue = 120)] public int MinTimeRemaining = 120;
     [IntConfig(DefaultValue = 90)] public int MaxProgress = 90;
+    [IntConfig(DefaultValue = 0)] public int VoucherToExchange = 0;
+    [IntConfig(DefaultValue = 0)] public int EwVoucherNpcLoc = 0;
+    [IntConfig(DefaultValue = 0)] public int DtVoucherNpcLoc = 0;
 
     [BoolConfig] public bool ShowFateTimeRemaining;
     [BoolConfig] public bool ShowFateBonusIndicator;
@@ -118,7 +122,21 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         .Zip(YokaiWeapons, (xy, z) => (xy.Minion, xy.Medal, Weapon: z))
         .Zip(YokaiZones, (wxy, z) => (wxy.Minion, wxy.Medal, wxy.Weapon, z))
         .ToList();
-
+    private static readonly List<string> VoucherTypes =
+   [
+        "Bicolor Gemstone (Endwalker)",
+        "Turali Bicolor Gemstone (Dawntrail)"
+   ];
+    private static readonly List<string> EwVoucherNpc =
+   [
+        "Old Sharlayan",
+        "Radz-at-Han"
+   ];
+    private static readonly List<string> DtVoucherNpc =
+   [
+        "Tuliyollal",
+        "Solution Nine"
+   ];
     private static readonly uint[] ForlornIDs = [7586, 7587];
     private static readonly uint[] TwistOfFateStatusIDs = [1288, 1289];
 
@@ -151,6 +169,76 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         ImGui.Unindent();
         ImGui.Checkbox("Prioritize fates that have progress already (up to configured limit)", ref Config.PrioritizeStartedFates);
         ImGui.Checkbox("Always close to melee range of target", ref Config.StayInMeleeRange);
+        ImGui.Checkbox("Exchange for gemstone vouchers", ref Config.ExchangeVouchers);
+        ImGui.Indent();
+        using (var _ = ImRaii.Disabled(!Config.ExchangeVouchers))
+        {
+            var VoucherPrev = VoucherTypes[Config.VoucherToExchange];
+            ImGui.PushID("VoucherCombo");
+            if (ImGui.BeginCombo("", VoucherPrev))
+            {
+                int index = 0;
+                foreach (var voucher in VoucherTypes)
+                {
+                    var selected = ImGui.Selectable(voucher, Config.VoucherToExchange == index);
+
+                    if (selected)
+                    {
+                        Config.VoucherToExchange = index;
+                    }
+                    index++;
+                }
+                ImGui.EndCombo();
+            }
+            ImGui.PopID();
+            ImGui.Unindent();
+        }
+        if (Config.ExchangeVouchers && Config.VoucherToExchange == 0)
+        {
+            ImGui.Indent();
+            var EwNPCPrev = EwVoucherNpc[Config.EwVoucherNpcLoc];
+            ImGui.PushID("EwNpcCombo");
+            if (ImGui.BeginCombo("", EwNPCPrev))
+            {
+                int index = 0;
+                foreach (var npc in EwVoucherNpc)
+                {
+                    var selected = ImGui.Selectable(npc, Config.EwVoucherNpcLoc == index);
+
+                    if (selected)
+                    {
+                        Config.EwVoucherNpcLoc = index;
+                    }
+                    index++;
+                }
+                ImGui.EndCombo();
+            }
+            ImGui.PopID();
+            ImGui.Unindent();
+        }
+        if (Config.ExchangeVouchers && Config.VoucherToExchange == 1)
+        {
+            ImGui.Indent();
+            var DtNPCPrev = DtVoucherNpc[Config.DtVoucherNpcLoc];
+            ImGui.PushID("DtNpcCombo");
+            if (ImGui.BeginCombo("", DtNPCPrev))
+            {
+                int index = 0;
+                foreach (var npc in DtVoucherNpc)
+                {
+                    var selected = ImGui.Selectable(npc, Config.DtVoucherNpcLoc == index);
+
+                    if (selected)
+                    {
+                        Config.DtVoucherNpcLoc = index;
+                    }
+                    index++;
+                }
+                ImGui.EndCombo();
+            }
+            ImGui.PopID();
+            ImGui.Unindent();
+        }
         ImGui.Checkbox("Full Auto Mode", ref Config.FullAuto);
         if (ImGui.IsItemHovered()) ImGui.SetTooltip($"All the below options will be treated as true if this is enabled.");
         ImGui.Indent();
